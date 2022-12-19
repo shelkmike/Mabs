@@ -2,7 +2,7 @@
 Briefly, Mabs works as follows:
 1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses special tricks to accelerate the assembly process.
 2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#internal_link_to_calculate_AG).
-3) The genome assembly with the largest AG is condidered the best.
+3) The genome assembly with the largest AG is considered the best.
 
 Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see <i>a link to BioRxiv will be here in a few days</i>.
 <br><br>
@@ -51,7 +51,7 @@ Example 2:<br>
 <a name="internal_link_to_Mabs-flye"></a>
 #### b) Mabs-flye
 Mabs-flye is intended for Nanopore reads and PacBio CLR reads (also known as "old PacBio reads"). Similarly to Mabs-hifiasm, Mabs-flye requires two values:
-1. A path to reads, provided via options "--nanopore_reads", "--pacbio_clr_reads" or "--pacbio_hifi_reads". If you have several read datatets created by different technologies, these options can be used simultaneously. Keep in mind that if you have only HiFi reads, it's better to use Mabs-hifiasm.
+1. A path to reads, provided via options "--nanopore_reads", "--pacbio_clr_reads" or "--pacbio_hifi_reads". If you have several read datasets created by different technologies, these options can be used simultaneously. Keep in mind that if you have only HiFi reads, it's better to use Mabs-hifiasm.
 2. A path to a BUSCO dataset, provided via options "--download_busco_dataset" or "--local_busco_dataset". For details, see "2." in the description of Mabs-hifiasm above.
 
 To see the full list of options, run
@@ -84,12 +84,12 @@ These two commands assemble the first chromosome of <i>Saccharomyces cerevisiae<
 <br><br>
 <a name="internal_link_to_calculate_AG"></a>
 ## calculate_AG
-Besides Mabs-hifiasm and Mabs-flye, Mabs contains a third tool, named calculate_AG. It's purpose is to assess genome assembly quality.
+Besides Mabs-hifiasm and Mabs-flye, Mabs contains a third tool, named calculate_AG. Its purpose is to assess genome assembly quality.
 <br><br>
 calculate_AG is used internally by Mabs-hifiasm and Mabs-flye, but also can be used externally if a user wants to assess the quality of some assembly.<br><br>
 The main concept in calculate_AG is "AG", which is a metric of gene assembly quality used by Mabs. "AG" is short for "Accurately assembled Genes". It is calculated as a sum of the following two values:<br>
 a) The number of genes in single-copy BUSCO orthogroups.<br>
-b) The number of genes in true multicopy orthogroups. "True multicopy" means that there are more than one gene in these orthogroups not because of assembly errors, but because these genes are actual paralogs. In contrast, the number of genes in false multicopy orthogroups (the orthogroups where genes duplications are because of assembly errors) are not included in AG.<br><br>
+b) The number of genes in true multicopy orthogroups. "True multicopy" means that there is more than one gene in these orthogroups not because of assembly errors, but because these genes are actual paralogs. In contrast, the number of genes in false multicopy orthogroups (the orthogroups where genes' duplications are because of assembly errors) is not included in AG.<br><br>
 AG, in my opinion, may be a better metric of gene assembly quality than BUSCO results, because BUSCO does not differentiate true multicopy orthogroups and false multicopy orthogroups, combining them into a single "D" category.<br>
 A frequent cause of false multicopy orthogroups are haplotypic duplications, when two alleles of a gene are erroneously assembled as paralogs.
 calculate_AG differentiates true multicopy orthogroups from false multicopy orthogroups based on gene coverage, since if a duplication is an assembly error, the gene coverage should be decreased.<br>
@@ -105,20 +105,20 @@ For more options, run<br>
 The main file produced by calculate_AG is ./AG_calculation_results/AG.txt . It contains a single number which is the AG.
 In addition, calculate_AG produces figures <i>gene_coverage_distribution.svg</i> and <i>gene_coverage_distribution.png</i> which look like this:<br>
 ![image with a relatively bad assembly](http://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_bad_assembly.png)<br>
-This type of diagrams is called sinaplot, see https://cran.r-project.org/web/packages/sinaplot/vignettes/SinaPlot.html . The sinaplot produced by calculate_AG helps to evaluate the assembly quality visually. While the coverage distribution of genes from single-copy orthogroups is unimodal, the coverage distrubution of genes from multicopy orthogroups can be bimodal because genes that were erroneously duplicated have twice as low coverage as they should have. In the perfect assembly, the coverage distribution of genes from multicopy orthogroups is identical to the coverage distribution of genes from single-copy orthogroups. The picture above is for a rather bad assembly. Below is the picture made by calculate_AG for a better assembly of the same genome:<br>
+This type of diagrams is called sinaplot, see https://cran.r-project.org/web/packages/sinaplot/vignettes/SinaPlot.html . The sinaplot produced by calculate_AG helps to evaluate the assembly quality visually. While the coverage distribution of genes from single-copy orthogroups is unimodal, the coverage distribution of genes from multicopy orthogroups can be bimodal because genes that were erroneously duplicated have twice as low coverage as they should have. In the perfect assembly, the coverage distribution of genes from multicopy orthogroups is identical to the coverage distribution of genes from single-copy orthogroups. The picture above is for a rather bad assembly. Below is the picture made by calculate_AG for a better assembly of the same genome:<br>
 ![image with a relatively good assembly](http://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_good_assembly.png)<br>
 <br><br>
-The recommended usage of calculate_AG is to compare the quality of assemblies of a single genome made by different genome assemblers, or made by a single assembler with different parameters. Besides the value of AG (in the file ./AG_calculation_results/AG.txt), calculate_AG also provide the exact numbers of genes in single-copy orthogroups, in true multicopy orthogroups, and in false multicopy orthogroups; the corresponding values can be found at the end of the file ./AG_calculation_results/logs.txt.
+The recommended usage of calculate_AG is to compare the quality of assemblies of a single genome made by different genome assemblers, or made by a single assembler with different parameters. Besides the value of AG (in the file ./AG_calculation_results/AG.txt), calculate_AG also provides the exact numbers of genes in single-copy orthogroups, in true multicopy orthogroups, and in false multicopy orthogroups; the corresponding values can be found at the end of the file ./AG_calculation_results/logs.txt.
 <br><br>
 <a name="internal_link_to_Questions_and_Answers"></a>
 ## Questions and Answers
 1. Should assemblies produced by Mabs be polished afterwards?<br>
 The assemblies made by Mabs-hifiasm are accurate already. The assemblies made by Mabs-flye require polishing by accurate reads. "Accurate reads" are reads of Illumina, MGI, or PacBio HiFi. Good programs for polishing are, for example, [HyPo](https://github.com/kensung-lab/hypo), [POLCA](https://github.com/alekseyzimin/masurca), [Racon](https://github.com/lbcb-sci/racon).
 2. How to assemble a genome using high-accuracy Nanopore reads?<br>
-If you have Nanopore reads with really high accuracy (≥99%), I advise to try both Mabs-hifiasm and Mabs-flye.
+If you have Nanopore reads with really high accuracy (≥99%), I advise trying both Mabs-hifiasm and Mabs-flye.
 3. What is the program "Modified_hifiasm" used by Mabs?<br>
-Modified_hifiasm is a special version of Hifiasm, where I added an option "--only-primary". With this option, Modified_hifiasm stops after creating the file with the primary assembly. Usage of Modified_hifiasm makes Mabs-hifiasm faster then when using the original Hifiasm.
-4. Is it worth to use Mabs if I don't expect a high number of haplotypic duplications?<br>
+Modified_hifiasm is a special version of Hifiasm, where I added an option "--only-primary". With this option, Modified_hifiasm stops after creating the file with the primary assembly. Usage of Modified_hifiasm makes Mabs-hifiasm faster than when using the original Hifiasm.
+4. Is it worth using Mabs if I don't expect a high number of haplotypic duplications?<br>
 Though the primary purpose of Mabs is creation of assemblies with few haplotypic duplications, it may be useful even if you don't expect many haplotypic duplications. Since Mabs optimizes parameters of Hifiasm or Flye to maximize the gene assembly quality, in most cases it will produce assemblies better than or equal to Hifiasm or Flye.
 5. Can Mabs be used to assemble metagenomes?<br>
 No. When evaluating which genes were assembled correctly and which were assembled incorrectly, Mabs relies on their coverage. In a metagenomic sequencing different genomes have different coverage, which makes Mabs useless.
@@ -131,8 +131,8 @@ This can happen if http://mikeshelk.site and, consequently, http://mikeshelk.sit
 9. What does "Mabs" mean?<br>
 Funny to say, but "Mabs" means "Miniasm-based Assembler which maximizes Busco Score". That's because:<br>
 a) Mabs 1 was based on Miniasm instead of Hifiasm and Flye.<br>
-Miniasm takes as input a set of read overlaps produced by a program like Minimap2. Provided a file with overlaps, Miniasm performs assembly very quickly. The prominent speed of Miniasm allows to explore the parameter space more thoroughly than when using Hifiasm or Flye, which are 1-2 orders of magnitude slower. However, I later realized that the algorithm of Miniasm is inferior to the algorithms of Hifiasm and Flye, and even a more thorough exploration of a parameter space usually doesn't make Miniasm assemblies better than assemblies of Hifiasm and Flye. Therefore, I created Mabs 2 that uses Hifiasm and Flye. Mabs 1 worked in a 4-dimensional parameter space (optimized 4 different parameters of Miniasm), while Mabs 2 works in a 1-dimensional parameter space.<br><br>
-b) "Busco Score" is because very early versions of Mabs simply maximized BUSCO's "S" (the number of single copy genes). However, I quickly realized that maximization of S may lead to collapsing of close paralogs, because it transfers them from the "multicopy" category to the "single-copy" category, thus increasing S. To deal with this problem, I started to classify multicopy genes into true multicopy (TM) and false multicopy (FM), and devised AG as a target for maximization, which is a sum of S and TM.
+Miniasm takes as input a set of read overlaps produced by a program like Minimap2. Provided a file with overlaps, Miniasm performs assembly very quickly. The prominent speed of Miniasm allows exploring the parameter space more thoroughly than when using Hifiasm or Flye, which are 1-2 orders of magnitude slower. However, I later realized that the algorithm of Miniasm is inferior to the algorithms of Hifiasm and Flye, and even a more thorough exploration of a parameter space usually doesn't make Miniasm assemblies better than assemblies of Hifiasm and Flye. Therefore, I created Mabs 2 that uses Hifiasm and Flye. Mabs 1 worked in a 4-dimensional parameter space (optimized 4 different parameters of Miniasm), while Mabs 2 works in a 1-dimensional parameter space.<br><br>
+b) "Busco Score" is because very early versions of Mabs simply maximized BUSCO's "S" (the number of single-copy genes). However, I quickly realized that maximization of S may lead to collapsing of close paralogs, because it transfers them from the "multicopy" category to the "single-copy" category, thus increasing S. To deal with this problem, I started to classify multicopy genes into true multicopy (TM) and false multicopy (FM), and devised AG as a target for maximization, which is a sum of S and TM.
 10. How to cite Mabs?<br>
 <i>a link to BioRxiv will be here in a few days</i> .
 
