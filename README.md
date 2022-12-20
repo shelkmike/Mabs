@@ -91,7 +91,7 @@ The main concept in calculate_AG is "AG", which is a metric of gene assembly qua
 a) The number of genes in single-copy BUSCO orthogroups.<br>
 b) The number of genes in true multicopy orthogroups. "True multicopy" means that there is more than one gene in these orthogroups not because of assembly errors, but because these genes are actual paralogs. In contrast, the number of genes in false multicopy orthogroups (the orthogroups where genes' duplications are because of assembly errors) is not included in AG.<br><br>
 AG, in my opinion, may be a better metric of gene assembly quality than BUSCO results, because BUSCO does not differentiate true multicopy orthogroups and false multicopy orthogroups, combining them into a single "D" category.<br>
-A frequent cause of false multicopy orthogroups are haplotypic duplications, when two alleles of a gene are erroneously assembled as paralogs.
+A frequent cause of false multicopy orthogroups are haplotypic duplications, when two alleles of a gene are erroneously assembled as paralogs.<br>
 calculate_AG differentiates true multicopy orthogroups from false multicopy orthogroups based on gene coverage, since if a duplication is an assembly error, the gene coverage should be decreased.<br>
 <br>
 Basically, the larger AG is, the better the assembly is.
