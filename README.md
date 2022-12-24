@@ -4,7 +4,7 @@ Briefly, Mabs works as follows:
 2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#internal_link_to_calculate_AG).
 3) The genome assembly with the largest AG is considered the best.
 
-Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see <i>a link to BioRxiv will be here in a few days</i>.
+Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v1).
 <br><br>
 ## Table of Contents
 
@@ -32,7 +32,7 @@ Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can
 To run Mabs-hifiasm, a user should provide two values:
 1. A path to reads, via the option "--pacbio_hifi_reads".
 2. A BUSCO dataset. In the process of parameters optimization, Mabs uses a BUSCO dataset. The dataset can be provided using either the option "--download_busco_dataset", or the option "--local_busco_dataset".
-The option "--download_busco_dataset" requires a filename from https://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It is recommended to use the most taxonomically narrow dataset. For example, if you assemble a drosophila genome, use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz".
+The option "--download_busco_dataset" requires a filename from [http://mikeshelk.site/Data/BUSCO_datasets/Latest/](http://mikeshelk.site/Data/BUSCO_datasets/Latest/) . It is recommended to use the most taxonomically narrow dataset. For example, if you assemble a drosophila genome, use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz".
 Alternatively, you can download a dataset to your computer manually, and use the option "--local_busco_dataset". For example, "--local_busco_dataset /home/username/Work/diptera_odb10.2020-08-05.tar.gz".
 
 To see the full list of options, run
@@ -134,5 +134,5 @@ a) Mabs 1 was based on Miniasm instead of Hifiasm and Flye.<br>
 Miniasm takes as input a set of read overlaps produced by a program like Minimap2. Provided a file with overlaps, Miniasm performs assembly very quickly. The prominent speed of Miniasm allows exploring the parameter space more thoroughly than when using Hifiasm or Flye, which are 1-2 orders of magnitude slower. However, I later realized that the algorithm of Miniasm is inferior to the algorithms of Hifiasm and Flye, and even a more thorough exploration of a parameter space usually doesn't make Miniasm assemblies better than assemblies of Hifiasm and Flye. Therefore, I created Mabs 2 that uses Hifiasm and Flye. Mabs 1 worked in a 4-dimensional parameter space (optimized 4 different parameters of Miniasm), while Mabs 2 works in a 1-dimensional parameter space.<br><br>
 b) "Busco Score" is because very early versions of Mabs simply maximized BUSCO's "S" (the number of single-copy genes). However, I quickly realized that maximization of S may lead to collapsing of close paralogs, because it transfers them from the "multicopy" category to the "single-copy" category, thus increasing S. To deal with this problem, I started to classify multicopy genes into true multicopy (TM) and false multicopy (FM), and devised AG as a target for maximization, which is a sum of S and TM.
 10. How to cite Mabs?<br>
-<i>a link to BioRxiv will be here in a few days</i> .
+Cite the preprint [https://www.biorxiv.org/content/10.1101/2022.12.19.521016v1](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v1).
 
