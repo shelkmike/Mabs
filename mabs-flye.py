@@ -111,7 +111,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-hifiasm всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	
-	s_Mabs_version = "2.11"
+	s_Mabs_version = "2.12"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
@@ -167,6 +167,12 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 				for s_error_text in l_unavailable_files_and_folders:
 					n_error_number += 1
 					print(str(n_error_number) + ") " + l_unavailable_files_and_folders[n_error_number - 1])
+				sys.exit()
+		
+		#Проверяю, что выходной папки не существует, либо она существует и пустая. В противном случае, говорю пользователю, что это ошибка.
+		if os.path.exists(s_path_to_the_output_folder):
+			if len(os.listdir(s_path_to_the_output_folder)) != 0:
+				print("Mabs-flye has stopped because the output folder already exists and is not empty.")
 				sys.exit()
 		
 		#создаю выходную папку Mabs
@@ -260,6 +266,13 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 			
 			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
 			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
+		
+		#Проверяю, что выходной папки не существует, либо она существует и пустая. В противном случае, говорю пользователю, что это ошибка. Не записываю эту ошибку в список l_errors_in_command_line , а сразу останавливаю работу, потому что если выходная папка уже существует, то в неё нельзя качать файлы BUSCO.
+		if os.path.exists(s_path_to_the_output_folder):
+			if len(os.listdir(s_path_to_the_output_folder)) != 0:
+				print("Mabs-flye has stopped because the output folder already exists and is not empty.")
+				sys.exit()
+		
 		os.makedirs(s_path_to_the_output_folder, exist_ok = True)
 		
 		#проверяю, что пользователь не указал одновременно --download_busco_dataset и --local_busco_dataset

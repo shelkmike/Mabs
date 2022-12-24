@@ -87,7 +87,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-hifiasm всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.11" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.12" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
@@ -177,6 +177,13 @@ python3 calculate_AG.py --assembly contigs.fasta --nanopore nanopore_reads.fastq
 		
 		s_string_to_remove = re.escape(o_regular_expression_results.group(0))
 		s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
+	
+	#Проверяю, что выходной папки не существует, либо она существует и пустая. В противном случае, говорю пользователю, что это ошибка.  Не записываю эту ошибку в список l_errors_in_command_line , а сразу останавливаю работу, потому что если выходная папка уже существует, то в неё нельзя качать файлы BUSCO.
+	if os.path.exists(s_path_to_the_output_folder):
+		if len(os.listdir(s_path_to_the_output_folder)) != 0:
+			print("calculate_AG has stopped because the output folder already exists and is not empty.")
+			sys.exit()	
+	
 	os.makedirs(s_path_to_the_output_folder, exist_ok = True)
 
 	#проверяю, что пользователь не указал одновременно --download_busco_dataset и --local_busco_dataset
@@ -854,7 +861,7 @@ python3 calculate_AG.py --assembly contigs.fasta --nanopore nanopore_reads.fastq
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
-	f_logs.write("AG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
+	f_logs.write("AG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups is " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
 	f_AG_calculation_results.write("AG is " + str(n_AG))
 	
 	f_logs.close
