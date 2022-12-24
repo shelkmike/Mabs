@@ -25,7 +25,7 @@ To install Mabs, download the latest version from [Releases](https://github.com/
 <br><br>
 <a name="internal_link_to_How_to_use"></a>
 ## How to use
-Two main components of Mabs are Mabs-hifiasm and Mabs-flye. Mabs-hifiasm works as a parameter optimizer of Hifiasm, while Mabs-fly works as a parameter optimizer of Flye.
+Two main components of Mabs are Mabs-hifiasm and Mabs-flye. Mabs-hifiasm works as a parameter optimizer of Hifiasm, while Mabs-flye works as a parameter optimizer of Flye.
 <a name="internal_link_to_Mabs-hifiasm"></a>
 #### a) Mabs-hifiasm
 Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can be used for very accurate (accuracy ≥99%) Nanopore reads, as their characteristics are similar to characteristics of HiFi reads. <br>
