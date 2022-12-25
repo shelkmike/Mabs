@@ -108,7 +108,7 @@ if __name__ == '__main__':
 	s_path_to_the_output_folder = "./Mabs_results" #путь к выходной папке Mabs-flye.
 	s_genome_size_estimate = "auto" #оценка размера генома.
 
-	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-hifiasm всё равно будет использовать все.
+	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-flye всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	
 	s_Mabs_version = "2.12"
@@ -129,7 +129,7 @@ Main options:
 4) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly, use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-flye will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
 5) --threads        Number of CPU threads to be used by Mabs-flye. The default value is 10.
 6) --output_folder        Output folder for Mabs-flye results. The default is "Mabs_results".
-7) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
+7) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-flye use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
 8) --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
 9) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
 10) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".

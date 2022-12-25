@@ -84,7 +84,7 @@ if __name__ == '__main__':
 	s_should_proovframe_be_used = "false" #нужно ли после шлифовки ридами использовать шлифовку Proovframe. Значение "true" или "false". 
 	s_path_to_the_output_folder = "./AG_calculation_results" #путь к папке, куда calculate_AG пишет файлы.
 	
-	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-hifiasm всё равно будет использовать все.
+	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
 	s_version_of_calculate_AG = "2.12" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 6) --threads        Number of CPU threads to be used by calculate_AG. The default value is 10.
 7) --use_proovframe         Whether calculate_AG should polish sequences using Proovframe. "true" or "false". The default value is "false".
 8) --output_folder        Output folder for calculate_AG results. The default is "AG_calculation_results".
-9) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
+9) --number_of_busco_orthogroups        How many BUSCO orthogroups should calculate_AG use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
 10) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
 11) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
 
@@ -112,7 +112,7 @@ Informational options:
 13) --version        Print the version of calculate_AG.
 
 Example:
-python3 calculate_AG.py --assembly contigs.fasta --nanopore nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40
+python3 calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40
 		""")
 		sys.exit()
 		
@@ -351,7 +351,7 @@ python3 calculate_AG.py --assembly contigs.fasta --nanopore nanopore_reads.fastq
 		
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name
 	
-	#Оставляю из базы BUSCO только нужное количество (s_number_of_busco_orthogroups_to_use) ортогрупп — тех, которые имеют наиболее консервативные последовательности. Если пользователь указал использовать все ортогруппы, то Mabs-hifiasm использует все. Если пользователь указал больше ортогрупп, чем есть в этом наборе BUSCO, то Mabs-hifiasm использует все и пишет Warning в основной файл с логами.
+	#Оставляю из базы BUSCO только нужное количество (s_number_of_busco_orthogroups_to_use) ортогрупп — тех, которые имеют наиболее консервативные последовательности. Если пользователь указал использовать все ортогруппы, то calculate_AG использует все. Если пользователь указал больше ортогрупп, чем есть в этом наборе BUSCO, то calculate_AG использует все и пишет Warning в основной файл с логами.
 	mabs_function_preprocess_busco_dataset.function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_of_busco_orthogroups_to_use, s_path_to_the_output_folder, f_logs)
 	
 	s_path_to_a_BUSCO_folder = s_path_to_the_output_folder + "/BUSCO_dataset_to_use/"
