@@ -97,7 +97,7 @@ calculate_AG differentiates true multicopy orthogroups from false multicopy orth
 Basically, the larger AG is, the better the assembly is.
 <br><br>
 If a user wants to calculate AG for some genome assembly, he can use a command like:<br>
-`calculate_AG.py --assembly contigs.fasta --nanopore nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40`
+`calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40`
 <br><br>
 For more options, run<br>
 `calculate_AG.py --help`
