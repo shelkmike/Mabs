@@ -1,0 +1,82 @@
+#!/usr/bin/env perl
+# Created: 13 Nov 2020
+# Author: Thomas Hackl, thackl@lim4.de
+use warnings;
+use strict;
+use Getopt::Long  qw(:config no_ignore_case bundling);
+use Data::Dumper;
+
+GetOptions (
+    "out|o=s" => sub { '-' ne $_[1] and open(STDOUT, '>', $_[1]) || die $! },
+    "num-reads|n=i" => \(my $num_reads = 1000),
+    "min-map-frac|m=i" => \(my $min_map_frac = .8),
+    "help|h!" => \(my $help),
+    "debug|D!" => \(my $debug),
+) or die("Error in command line arguments\n");
+
+if ($help || @ARGV < 2){
+    print "Usage: proovframe error ref.fa qry.fa\n";
+    printf " %-19s  %s\n", "-n/--num-reads", "only assess first [$num_reads]";
+    printf " %-19s  %s\n", "-m/--min-map-frac", "only assess seqs with at least this fraction aligned [$min_map_frac]";
+    printf " %-19s  %s\n", "-o/--out", "write to this file [STDOUT]";
+    printf " %-19s  %s\n", "-h/--help", "show this help";
+    printf " %-19s  %s\n", "-D/--debug", "show debug messages";
+    print "\nRequires minimap2 and seqkit in PATH\n";
+    exit 0;
+}
+
+my $ref = $ARGV[0];
+my $seq = $ARGV[1];
+
+my $cmd = "minimap2 --eqx -c -k 10 -N 1 $ref $seq";
+if ($num_reads) {
+    $cmd = "seqkit head -n $num_reads $seq | minimap2 --eqx -c -k 10 -N 1 $ref -"
+}
+open(my $paf, "-|", $cmd) or die $!;
+
+my $ignored; # alignments not assessed
+my @syms = qw(M X = I D S H); # cigar syms
+my %e;
+my %d;
+@e{@syms} = (0)x7;
+@d{@syms} = [];
+
+while (<$paf>) {
+    chomp();
+    my @r = split("\t", $_);
+    if ($r[10]/$r[1] < $min_map_frac || !/tp:A:P/) {
+        $ignored++;
+        next;
+    }
+    my ($cigar) = grep{/^cg:Z:/}@r[12..$#r];
+    my @c = split(/(\d+)/, $cigar);
+    for (my $i=1; $i<@c; $i+=2) {
+        my ($s, $n) = @c[$i+1, $i];
+        $e{$s} += $n;
+        #$d{$s}[$n]++;
+    }
+
+}
+
+my $t =0;
+$t+=$_ for @e{qw(M X = I)};
+my $m=$t;
+$m-=$_ for @e{qw(S H)};
+
+print "total mapped bases: $m\n";
+printf "%s\t%10s\t%10s\n", "bases", "#", "%";
+for (@syms) {
+    printf "%s\t%10d\t%10.2f\n", $_, $e{$_}, $e{$_} / $m * 100;
+}
+exit;
+print "\n-------------------\n";
+print "#\t", join("\t", @syms), "\n";
+
+for my $n (1..20) {
+    print "$n";
+    for my $s (@syms) {
+        my $x = $d{$s}[$n];
+        print "\t", $x ? $x * $n : "";
+    }
+    print "\n";
+}

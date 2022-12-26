@@ -91,7 +91,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-hifiasm всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	
-	s_Mabs_version = "2.13"
+	s_Mabs_version = "2.14"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
@@ -454,7 +454,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	#согласно мануалу DIAMOND, он может делать выравнивание, когда query в форматах .fasta, .fasta.gz. .fastq, .fastq.gz.
 	#поставил --max-target-seqs 1 --max-hsps 1 , потому что если рид дал хоть одно выравнивание, то я считаю, что он, возможно, относится к гену BUSCO.
 	#Формат выдачи довольно простой (6 qseqid qlen sseqid evalue bitscore), потому что я исключил все параметры, которые на https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options помечены звёздочкой, чтобы ускорить выравнивание.
-	#0.001 будет давать ложные выравнивания только для каждого тысячного риды, что приемлемо (не очень увеличит время minimap2, которое я буду делать для шлифовки), зато увеличивает чувствительность.
+	#0.001 будет давать ложные выравнивания только для каждого тысячного рида, что приемлемо (не очень увеличит время картирования minimap2), зато увеличивает чувствительность.
 
 
 	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/DIAMOND/diamond blastx --query " + s_path_to_pacbio_hifi_reads + " --threads " + str(n_number_of_cpu_threads_to_use) + " --frameshift 15 --sensitive --db " + s_path_to_the_output_folder + "/reference_busco_proteins.fasta --out " + s_path_to_the_output_folder + "/diamond_results_for_alignment_of_pacbio_hifi_reads_to_busco_proteins.txt --outfmt 6 qseqid qlen sseqid evalue bitscore --max-target-seqs 1 --max-hsps 1 --min-orf 1 --evalue 0.001 1>" + s_path_to_the_output_folder + "/diamond__pacbio_hifi_reads_to_busco_proteins__stdout.txt 2>" + s_path_to_the_output_folder + "/diamond__pacbio_hifi_reads_to_busco_proteins__stderr.txt")

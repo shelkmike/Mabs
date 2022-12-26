@@ -1,0 +1,35 @@
+#!/usr/bin/env perl
+# Created: 23 Nov 2020
+# Author: Thomas Hackl, thackl@lim4.de
+use warnings;
+use strict;
+use Getopt::Long  qw(:config no_ignore_case bundling);
+use FindBin qw($RealBin);
+
+my $VERSION = "0.9.7";
+
+print STDERR "proovframe-v$VERSION - frame-shift correction for long-read genomics data\n\n";
+
+print STDERR 'Please cite:
+- Hackl T, Trigodet F, Murat Eren A, Biller SJ, Eppley JM, Luo E, Burger A, DeLong EF,
+  Fischer MG, "proovframe: frameshift-correction for long-read (meta)genomics",
+  bioRxiv. 2021. p. 2021.08.23.457338. doi:10.1101/2021.08.23.457338
+- Buchfink B, Reuter K, Drost HG, "Sensitive protein alignments at tree-of-life scale
+  using DIAMOND", Nature Methods 18, 366–368 (2021). doi:10.1038/s41592-021-01101-x
+
+';
+
+
+my %cmds = qw(map 1 fix 1 prf 1);
+if (@ARGV < 1 || !exists($cmds{$ARGV[0]})){
+    print "Usage: proovframe <cmd> [options]\n\n";
+    print "  map     produce read/contig-to-protein alignments with diamond (convenience wrapper)\n";
+    print "  fix     correct reads/contigs guided by diamond protein mappings\n\n";
+    print "auxiliary commands:\n";
+    print "  prf     profile error rates from reference alignments at nucleotide-level\n\n";
+    print "See `proovframe cmd -h` for more options\n";
+    
+    exit 0;
+}
+
+system("$RealBin/proovframe-@ARGV");

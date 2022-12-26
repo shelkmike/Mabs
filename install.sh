@@ -3,6 +3,8 @@
 <<COMMENT
 This script compiles additional programs provided with Mabs.
 Just run "bash install.sh" .
+
+The folder "Additional_src" contains the source code of programs used by Mabs. When "bash install.sh" is run, the content of this folder is copied into the folder "Additional" and then compiled there. Keeping the non-compiled code in a separate folder allows for a simple re-installion of Mabs in case some problem happens during installation. To re-install Mabs, one may just run "bash install.sh" again. This command deletes the folder "Additional", then re-creates it and re-compiles everything.
 COMMENT
 
 #With this command, the script stops after the first error it encounters.
@@ -53,8 +55,8 @@ then
     rm -rf ./Additional
 fi
 
-#Decompressing the archive
-unzip additional.zip
+#Copying the content of "Additional_src" to "Additional"
+cp -rp ./Additional_src ./Additional
 
 #Bedtools is pre-compiled, I just change permissions.
 chmod 755 ./Additional/Bedtools/bedtools

@@ -111,7 +111,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-flye всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	
-	s_Mabs_version = "2.13"
+	s_Mabs_version = "2.14"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
@@ -452,11 +452,11 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	os.symlink(os.path.abspath(s_path_to_the_output_folder + "/BUSCO_dataset_to_use/ancestral"), s_path_to_the_output_folder + "/reference_busco_proteins.fasta")
 	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/DIAMOND/diamond makedb --in " + s_path_to_the_output_folder + "/reference_busco_proteins.fasta -d " + s_path_to_the_output_folder + "/reference_busco_proteins.fasta")
 
-	#теперь определяю, какие риды выравниваются к белкам BUSCO. В будущем, для скорости, при шлифовке на каждой итерации я буду использовать только эти длинные риды.
+	#теперь определяю, какие риды выравниваются к белкам BUSCO. В будущем, для скорости, при определении покрытия на каждой итерации я буду использовать только эти длинные риды.
 	#согласно мануалу DIAMOND, он может делать выравнивание, когда query в форматах .fasta, .fasta.gz. .fastq, .fastq.gz.
 	#поставил --max-target-seqs 1 --max-hsps 1 , потому что если рид дал хоть одно выравнивание, то я считаю, что он, возможно, относится к гену BUSCO.
 	#Формат выдачи довольно простой (6 qseqid qlen sseqid evalue bitscore), потому что я исключил все параметры, которые на https://github.com/bbuchfink/diamond/wiki/3.-Command-line-options помечены звёздочкой, чтобы ускорить выравнивание.
-	#0.001 будет давать ложные выравнивания только для каждого тысячного риды, что приемлемо (не очень увеличит время minimap2, которое я буду делать для шлифовки), зато увеличивает чувствительность.
+	#0.001 будет давать ложные выравнивания только для каждого тысячного рида, что приемлемо (не очень увеличит время картирования minimap2), зато увеличивает чувствительность.
 
 	#Пути к ридам, которые имеют матчи к белкам BUSCO. Эти переменные (для тех наборов ридов, которые дал пользователь) я заполню ниже.
 	s_path_to_nanopore_reads_that_correspond_to_busco_genes = ""

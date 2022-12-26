@@ -1,0 +1,256 @@
+#!/usr/bin/env perl
+# Created: 14 Nov 2020
+# Author: Thomas Hackl, thackl@lim4.de
+use warnings;
+use strict;
+use Getopt::Long  qw(:config no_ignore_case bundling);
+use Data::Dumper;
+use FindBin qw($RealBin);
+use lib "$RealBin/../lib/";
+use Fasta::Parser;
+use List::Util qw(max);
+$|++;
+
+GetOptions (
+    "genetic-code|g=i" => \(my $gcode = 11),
+    "no-stop-masking|S!" => \(my $no_stop_masking),
+    "out|o=s" => sub { '-' ne $_[1] and open(STDOUT, '>', $_[1]) || die $! },
+    "help|h!" => \(my $help),
+    "debug|D!" => \(my $debug),
+) or die("Error in command line arguments\n");
+
+if ($help || @ARGV < 2){
+    print "Usage: proovframe fix seqs.fa diamond.tsv > out\n";
+    printf " %-21s  %s\n", "-g/--genetic-code", "genetic code table, sets stop codons [$gcode]";
+    printf " %-21s  %s\n", "-S/--no-stop-masking", "disable internal stop codon masking";
+    printf " %-21s  %s\n", "-o/--out", "write to this file [STDOUT]";
+    printf " %-21s  %s\n", "-h/--help", "show this help";
+    printf " %-21s  %s\n", "-D/--debug", "show debug messages";
+    print "\n";
+    print "diamond.tsv - diamond long-reads mode blastx 6 with extra cigar columns\n";
+    exit 0;
+}
+
+my $p = Fasta::Parser->new(file => $ARGV[0]);
+$p->check_format() or die "Expecting seqs in fasta format\n";
+open(my $mapps, $ARGV[1]) || die $!;
+
+# cigar codes that change pos in read
+my %pos = (M => 1, I => 1);
+my $next_id;
+my @ALNS = ();
+my $stop_codons = stop_codons($gcode);
+
+if ($no_stop_masking) {
+    print STDERR "Stop codons that will be masked: disabled\n";
+}else {
+    print STDERR "Stop codons that will be masked: $stop_codons\n";
+}
+
+print STDERR "Processing seqs ...\n";
+# go through all seqs
+my $n_fix = 0;
+my $n_reads = 0;
+my $total_aln_len = 0;
+my $total_read_len = 0;
+my $total_stop_masked = 0;
+while (my $seq = $p->next_seq) {
+    $n_reads++; $total_read_len+=$seq->length;
+    print STDERR "\r$n_reads" unless $n_reads%10000;
+    my @alns = get_alns($seq->id);
+    # print STDERR @alns+0, "\n";
+
+    # compute frameshift pos and ins for all alns
+    my $fpos_prev = 1_000_000_000_000;
+    foreach (@alns) {
+        my ($cigar, $qstart, $qend, $qlen, $sid) = @$_;
+        my ($qmin, $qmax) = sort {$a <=> $b}($qstart, $qend);
+        my $rev = $qstart > $qend ? 1 : 0;
+
+        $total_aln_len+=abs($qend-$qstart)+1;
+        my ($fpos, $fsym) = cigar2frameshift(@$_);
+        # fix sequence at frameshift positions
+        if (@$fpos) {
+            for (my $j = $#$fpos; $j > -1; $j--) {
+                next unless $fpos->[$j] < $fpos_prev; # ignore overlapping fixes
+                $n_fix ++;
+                if ($fsym->[$j] > 0){ # del
+                    $seq = $seq->substr_seq($fpos->[$j] +1, 0, "n"x$fsym->[$j]);
+                }else { # ins
+                    $seq = $seq->substr_seq($fpos->[$j], -$fsym->[$j], "");
+                }
+                $fpos_prev = $fpos->[$j];
+                # need to track change in seq len for stop masking
+                $qmax+=$fsym->[$j];
+            }
+        }
+        # fix in-frame stops within hits from same subject
+        $seq = mask_internal_stops($seq, $qmin, $qmax, $rev) unless $no_stop_masking;
+    }
+    $seq->desc("");
+
+    # print fixed sequence
+    # print STDERR "\n" if $debug;
+    # print STDERR join(" ", unpack("(A3)*", $seq->seq)), "\n" if $debug;
+    print "$seq";
+}
+
+print STDERR "\n";
+if ($n_reads) {
+    printf STDERR "%-25s %13d\n", "Total processed seqs:", "$n_reads";
+    printf STDERR "%-25s %12.1f%%\n", "Average seq coverage:", $total_aln_len/$total_read_len*100;
+    printf STDERR "%-25s %13d\n", "Sites modified:", "$n_fix";
+    printf STDERR "%-25s %13d\n", "Internal stops masked:", "$total_stop_masked";
+}
+
+
+
+
+#------------------------------------------------------------------------------#
+# This runs through alignments, grabs consecutive alns from same read, and
+# returns them once an alignment to another read is encountered; Caches that
+# alignment for next call;
+sub get_alns {
+    my ($id)  = @_;
+    my @alns = ();
+    # print STDERR "$id\n";
+    if (defined($next_id) && $id ne $next_id) {
+        # print STDERR "  read has no alignments\n";
+        return ();
+    } # this read has no alignments
+
+    # debug
+    die if @ALNS > 1; # if this happens, my logic is off.
+    while (<$mapps>) {
+        chomp();
+        my ($qid, $sid, $pid, $len, $mis, $gap, $qstart, $qend, $sstart, $send,
+            $evalue, $bitscore, $qlen, $cigar) = split("\t");
+        next unless $cigar =~ tr{/\\}{}; # ignore alns w/o frameshift
+        if ($qid eq $id) { # current alignment block
+            push(@ALNS, [$cigar, $qstart, $qend, $qlen, $sid]);
+
+        }else{ # new alignment block
+            # sort by position, reverse, real end b (max(start,end)) > start/end a
+            @alns = sort{max($b->[1],$b->[2])  <=> $a->[1]}@ALNS;
+            # overwrite and cache for next call;
+            $next_id = $qid;
+            @ALNS = [$cigar, $qstart, $qend, $qlen, $sid];
+            last;
+        }
+    }
+
+    if (eof($mapps)) {
+        # print STDERR "  eof\n";
+        if (!defined($next_id) || $id eq $next_id){
+            @alns = sort{max($b->[1],$b->[2])  <=> $a->[1]}@ALNS;
+            @ALNS = ();
+        }
+    }
+
+    return @alns;
+}
+
+sub cigar2frameshift{
+    my ($cig, $qstart, $qend, $qlen) = @_;
+    my @cig = split(/(\D)/, $cig);
+    my @fpos;
+    my @fsym;
+
+    # go through rev from the back
+    my $rev = $qstart > $qend;
+    my $pos = $rev ? $qlen - $qstart +1 : $qstart;
+
+    # parse coordinates of frameshifts from cigar
+    #
+    # "/" and "\\" are an issue because the can denote both, a 1/2 bp ins or
+    # del. Taking into account context, there is a way: cigar for +1:M1\ +2:I1/
+    # -1:M1/ -2:D1\. Not 100%, though.
+    for (my $i=0; $i<@cig; $i+=2) {
+        my $num = $cig[$i];
+        my $sym = $cig[$i+1];
+        if (exists($pos{$sym})){
+            $pos += $num * 3
+        }elsif ($sym eq '\\'){
+            $pos+= +1;
+            if ($cig[$i-1] eq "D"){ # -2:D1\
+                push @fpos, $pos-2;
+                push @fsym, 2;
+            }else{ # +1:M1\
+                push @fpos, $pos-2;
+                push @fsym, -1;
+            }
+        }elsif ($sym eq '/'){
+            $pos+= -1;
+            if ($cig[$i-1] eq "I"){ # +2:I1/
+                push @fpos, $pos-3;
+                push @fsym, -2;
+            }else{ # -1:M1/
+                push @fpos, $pos-2;
+                push @fsym, 1;
+            }
+        }
+    }
+
+    if ($rev) {
+        @fpos = map{$qlen-$_+1}reverse(@fpos) if $rev; # reverse
+        @fsym = reverse(@fsym);
+    }
+
+    return \@fpos, \@fsym;
+}
+
+
+sub mask_internal_stops{
+    my ($seq, $qmin, $qmax, $rev) = @_;
+    my $m = 5; # n codons from start&end ignored
+
+    # extract subseq covered by alignment
+    my $ss = $seq->substr_seq($qmin-1, $qmax-$qmin+1);
+    return $seq if $ss->length < $m*7;
+    $ss->reverse_complement() if $rev;
+
+    # split into codons, replace stops
+    my @codons = unpack("(A3)*", $ss->seq);
+    @codons[$m..$#codons-$m] = map{
+        s/^$stop_codons$/nnn/gi && $total_stop_masked++; $_
+    }@codons[$m..$#codons-$m];
+    $ss->seq(join("", @codons));
+    $ss->reverse_complement() if $rev;
+
+    # add fixed seq back
+    $seq->substr_seq($qmin-1, $qmax-$qmin+1, $ss->seq);
+}
+
+
+sub stop_codons{
+    my $code = shift;
+    my %stops = (
+        1 => "TAA|TAG|TGA",
+        2 => "TAA|TAG|AGA|AGG",
+        3 => "TAA|TAG",
+        4 => "TAA|TAG",
+        5 => "TAA|TAG",
+        6 => "TGA",
+        9 => "TAA|TAG",
+        10=> "TAA|TAG",
+        11=> "TAA|TAG|TGA",
+        12=> "TAA|TAG|TGA",
+        13=> "TAA|TAG",
+        14=> "TAG",
+        16=> "TAA|TGA",
+        21=> "TAA|TAG",
+        22=> "TCA|TAA|TGA",
+        23=> "TTA|TAA|TAG|TGA",
+        24=> "TAA|TAG",
+        25=> "TAA|TAG",
+        26=> "TAA|TAG|TGA",
+        27=> "TGA",
+        28=> "TAA|TAG|TGA",
+        29=> "TGA",
+        30=> "TGA",
+        31=> "TAA|TAG",
+        33=> "TAG"
+    );
+    die "Not a valid genetic code: $code" unless exists $stops{$code};
+    return $stops{$code};
+}

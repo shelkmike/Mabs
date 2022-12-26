@@ -1,0 +1,85 @@
+#!/usr/bin/env perl
+# Created: 20 Nov 2020
+# Author: Thomas Hackl, thackl@lim4.de
+use warnings;
+use strict;
+use Getopt::Long  qw(:config no_ignore_case bundling);
+use Data::Dumper;
+use Text::Wrap qw(wrap);
+use File::Basename;
+$Text::Wrap::columns = 70;
+$Text::Wrap::separator=" \\\n  ";
+
+GetOptions (
+    "threads|t=i" => \(my $threads = 4),
+    "db|d=s" => \(my $db),
+    "aa|a=s" => \(my $aa),
+    "out|o=s" => \(my $out),
+    "diamond-mode|m=s" => \(my $mode = "more-sensitive"),
+    "dry-run|y" => \(my $dry),
+    "help|h!" => \(my $help),
+    "debug|D!" => \(my $debug),
+) or die("Error in command line arguments\n");
+
+if ($help || @ARGV < 1){
+    print "Usage: proovframe map [-a|-d proteins] -o alignments.o6 seqs.fa -- extra-diamond-params\n";
+    printf " %-19s  %s\n", "-a/--aa", "protein file, not required if db provided.";
+    printf " %-19s  %s\n", "-d/--db", "created if not existing and --aa given [basename(aa).dmnd]";
+    printf " %-19s  %s\n", "-o/--out", "write alignments to this file [basename(seqs).o6]";
+    printf " %-19s  %s\n", "-t/--threads", "number of CPU threads";
+    printf " %-19s  %s\n", "-m/--diamond-mode", "one of fast,sensitive,{mid,more,very,ultra}-sensitive' [more-sensitive]";
+    printf " %-19s  %s\n", "-y/--dry-run", "print the diamond command, but don't run it";
+    printf " %-19s  %s\n", "-h/--help", "show this help";
+    printf " %-19s  %s\n", "-D/--debug", "show debug messages";
+    print "
+        For consensus sequences with rather low expected error rates
+        and if your reference database has a good represention of similar
+        sequences, you might want to switch to '-m fast' or '-m sensitive'
+        to speed things up.
+        Also note, I've experienced inefficient parallelization if
+        correcting a small number of Mb sized genomes (as opposed to thousands
+        of long-reads) - presumably because diamond threads on a per-sequence
+        basis
+        " ;
+		#Закомментировано мной, потому что из-за этой строки скрипт выдавал ошибку #=~ s/^ +//mgr;
+    exit 0;
+}
+
+my $path_to_the_current_folder = dirname(__FILE__);
+
+# note on parallel with single genomes ...
+
+die "Either --aa or --db required\n" if (!defined($aa) && !defined $db);
+
+# print join(" ", @ARGV),"\n";
+my $reads = shift(@ARGV);
+$db//=basename($aa, qw(.fa .faa .fas .fasta)).".dmnd";
+$out//=basename($reads, qw(.fa .fna .fasta)).".o6";
+
+print "Creating database:\n";
+if (!-e $db) {
+    die "--aa required" unless defined($aa);
+    my $dmnd_makedb = $path_to_the_current_folder."/../../DIAMOND/diamond makedb -p $threads --in $aa --db $db";
+    print wrap("  ", "", $dmnd_makedb), "\n\n";
+    $dry || system($dmnd_makedb) && die "diamond makedb returned with an error!";
+}elsif (defined($aa)) {
+    print "  $db already exists, will reuse\n";
+}
+
+if (!$mode || $mode eq "fast"){
+    $mode = ""
+} else {
+    $mode = "--".$mode;
+}
+
+print "\nMapping proteins:\n";
+my $dmnd_blastx = $path_to_the_current_folder."/../../DIAMOND/diamond blastx ".
+    "--db $db --query $reads --out $out ".
+    "-p $threads $mode ".
+    "--range-culling -F 15 -k 1 ".
+    "--outfmt 6 qseqid sseqid pident length mismatch gapopen qstart ".
+    "qend sstart send evalue bitscore qlen cigar sseq btop @ARGV";
+print wrap("  ", "", $dmnd_blastx), "\n\n";
+$dry || system($dmnd_blastx) && die "diamond blastx returned with an error!";;
+
+print "\nDone\n";
