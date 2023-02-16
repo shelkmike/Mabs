@@ -4,7 +4,7 @@ Briefly, Mabs works as follows:
 2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#internal_link_to_calculate_AG).
 3) The genome assembly with the largest AG is considered the best.
 
-Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v1).
+Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
 <br><br>
 ## Table of Contents
 
@@ -134,5 +134,5 @@ a) Mabs 1 was based on Miniasm instead of Hifiasm and Flye.<br>
 Miniasm takes as input a set of read overlaps produced by a program like Minimap2. Provided a file with overlaps, Miniasm performs assembly very quickly. The prominent speed of Miniasm allows exploring the parameter space more thoroughly than when using Hifiasm or Flye, which are 1-2 orders of magnitude slower. However, I later realized that the algorithm of Miniasm is inferior to the algorithms of Hifiasm and Flye, and even a more thorough exploration of a parameter space usually doesn't make Miniasm assemblies better than assemblies of Hifiasm and Flye. Therefore, I created Mabs 2 that uses Hifiasm and Flye. Mabs 1 worked in a 4-dimensional parameter space (optimized 4 different parameters of Miniasm), while Mabs 2 works in a 1-dimensional parameter space.<br><br>
 b) "Busco Score" is because very early versions of Mabs simply maximized BUSCO's "S" (the number of single-copy genes). However, I quickly realized that maximization of S may lead to collapsing of close paralogs, because it transfers them from the "multicopy" category to the "single-copy" category, thus increasing S. To deal with this problem, I started to classify multicopy genes into true multicopy (TM) and false multicopy (FM), and devised AG as a target for maximization, which is a sum of S and TM.
 10. How to cite Mabs?<br>
-Cite the preprint [https://www.biorxiv.org/content/10.1101/2022.12.19.521016v1](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v1).
+Cite the preprint [https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
 
