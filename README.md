@@ -6,7 +6,7 @@ Briefly, Mabs works as follows:
 
 Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
 <br><br>
-<table><tr><td>If you have tried Mabs, please let me know via Issues (https://github.com/shelkmike/Mabs/issues), irrespective of whether you encountered any actual issues. Please, write about how Mabs compares with other assemblers you tried and whether you have any recommendations for future versions of Mabs.</td></tr></table>
+<table><tr><td>If you have tried Mabs, please let me know via Issues (https://github.com/shelkmike/Mabs/issues), even if Mabs worked well. Please, write about how Mabs compares with other assemblers you tried and whether you have any recommendations for future versions of Mabs.</td></tr></table>
 <br>
 
 ## Table of Contents
