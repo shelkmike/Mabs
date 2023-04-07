@@ -328,7 +328,7 @@ def _compute_profile(alignment, ref_sequence):
     genome_len = alignment[0].trg_len
 
     #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
-    min_aln_len = cfg.vals["min_polish_aln_len"]
+    min_aln_len = min(cfg.vals["min_polish_aln_len"], genome_len // 2)
     aln_errors = []
     #filtered = 0
     profile = [ProfileInfo() for _ in range(genome_len)]

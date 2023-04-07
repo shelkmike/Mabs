@@ -1,5 +1,7 @@
 #ifndef __HIC__
 #define __HIC__
+
+#define __STDC_LIMIT_MACROS
 #include <stdint.h>
 #include "Overlaps.h"
 
@@ -8,6 +10,7 @@
 #define RC_0 0
 #define RC_1 1
 #define RC_2 2
+#define RC_3 3
 
 hc_edge* get_hc_edge(hc_links* link, uint64_t src, uint64_t dest, uint64_t dir);
 hc_edge* push_hc_edge(hc_linkeage* x, uint64_t uID, double weight, int dir, uint64_t* d);
@@ -90,6 +93,10 @@ int load_hc_links(hc_links* link, const char *fn);
 void write_hc_links(hc_links* link, const char *fn);
 void destory_bubbles(bubble_type* bub);
 void identify_bubbles(ma_ug_t* ug, bubble_type* bub, uint8_t *r_het_flag, kv_u_trans_t *ref);
+void identify_bubbles_recal(asg_t* sg, ma_ug_t* ug, bubble_type* bub, uint8_t *r_het_flag, ma_hit_t_alloc* sources, R_to_U* ruIndex,
+kv_u_trans_t *ref);
+void identify_bubbles_recal_poy(asg_t* sg, ma_ug_t* ug, bubble_type* bub, uint8_t *r_het_flag, ma_hit_t_alloc* sources, R_to_U* ruIndex,
+kv_u_trans_t *ref);
 void resolve_bubble_chain_tangle(ma_ug_t* ug, bubble_type* bub);
 uint32_t connect_bub_occ(bubble_type* bub, uint32_t root_id, uint32_t check_het);
 void get_bub_id(bubble_type* bub, uint32_t root, uint64_t* id0, uint64_t* id1, uint32_t check_het);
@@ -106,6 +113,9 @@ pdq* pqw, uint32_t* path_w, buf_t *resw, asg_t *sg, uint8_t *dest, uint8_t df, u
 long long *dis);
 void set_utg_by_dis(uint32_t v, pdq* pq, asg_t *g, kvec_t_u32_warp *res, uint32_t dis);
 void dedup_hits(kvec_pe_hit* hits, uint64_t is_dup);
-void hic_analysis(ma_ug_t *ug, asg_t* read_g, trans_chain* t_ch, ug_opt_t *opt, uint32_t is_poy, kvec_pe_hit **rhits);
+void hic_analysis(ma_ug_t *ug, asg_t* read_g, trans_chain* t_ch, ug_opt_t *opt, mmhap_t **rh, kvec_pe_hit **rhits);
 spg_t *hic_pre_analysis(ma_ug_t *ug, asg_t* read_g, trans_chain* t_ch, ug_opt_t *opt, kvec_pe_hit **rhits);
+void prt_bubble_gfa_adv(FILE *fp, bubble_type *bub, const char* utg_pre, const char* bub_pre, const char* chain_pre);
+void bp_solve(ug_opt_t *opt, kv_u_trans_t *ref, ma_ug_t *ug, asg_t *sg, bubble_type *bub, double cis_rate);
+
 #endif

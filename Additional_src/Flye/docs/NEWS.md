@@ -1,3 +1,9 @@
+Flye 2.9.2 release (18 March 2023)
+=================================
+* Update to minimap 2.24 + using HiFi and Kit14 parameters for faster alignment
+* Fixed a few small bugs and corner cases
+* Polisher now outputs read depth for each base of consensus (can be used as confidence measure)
+
 Flye 2.9.1 release (07 Aug 2022)
 ===============================
 * New option --no-alt-contigs to remove all non-primary contigs from the assembly

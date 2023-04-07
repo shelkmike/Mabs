@@ -1,3 +1,4 @@
+#define __STDC_LIMIT_MACROS
 #include <zlib.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -46,7 +47,21 @@ static ko_longopt_t long_options[] = {
     { "hg-size",     ko_required_argument, 332},
     { "ul",     ko_required_argument, 333},
     { "unskew",     ko_no_argument, 334},
-    { "only-primary",     ko_no_argument, 335},
+    { "kpt-rate",     ko_required_argument, 335},
+    { "ul-rate",     ko_required_argument, 336},
+    { "dbg-het-cnt",     ko_no_argument, 337},
+    { "ul-tip",     ko_required_argument, 338},
+    { "low-het",     ko_no_argument, 339},
+    { "s-base",     ko_required_argument, 340},
+    { "bin-only",     ko_no_argument, 341},
+    { "ul-round",     ko_required_argument, 342},
+    { "prt-raw",     ko_no_argument, 343},
+    { "integer-correct",     ko_required_argument, 344},
+    { "dbg-ovec",     ko_no_argument, 345},
+    { "path-max",     ko_required_argument, 346},
+    { "path-min",     ko_required_argument, 347},
+	{ "only-primary",     ko_no_argument, 348},
+    // { "path-round",     ko_required_argument, 348},
 	{ 0, 0, 0 }
 };
 
@@ -59,13 +74,13 @@ double Get_T(void)
 
 void Print_H(hifiasm_opt_t* asm_opt)
 {
-    fprintf(stderr, "Modified_hifiasm is a special version of Hifiasm made for Mabs. It has an additional option --only-primary that makes an assembly terminate after the GFA file with primary contigs has been made. This allows to save some time if only primary contigs are needed.\n");
-    fprintf(stderr, "Usage: modified_hifiasm [options] <in_1.fq> <in_2.fq> <...>\n");
+	fprintf(stderr, "Modified_hifiasm is a special version of Hifiasm made for Mabs. It has an additional option --only-primary that makes an assembly terminate after the GFA file with primary contigs has been made. This allows to save some time if only primary contigs are needed.\n");
+    fprintf(stderr, "Usage: hifiasm [options] <in_1.fq> <in_2.fq> <...>\n");
     fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  Input/Output:\n");
     fprintf(stderr, "    -o STR       prefix of output files [%s]\n", asm_opt->output_file_name);
     fprintf(stderr, "    -t INT       number of threads [%d]\n", asm_opt->thread_num);
-    fprintf(stderr, "    --only-primary       make only primary contigs\n");
+	fprintf(stderr, "    --only-primary       make only primary contigs\n");
     fprintf(stderr, "    -h           show help information\n");
     fprintf(stderr, "    --version    show version number\n");
 	fprintf(stderr, "  Overlap/Error correction:\n");
@@ -88,7 +103,9 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    -x FLOAT     max overlap drop ratio [%.2g]\n", asm_opt->max_drop_rate);
     fprintf(stderr, "    -y FLOAT     min overlap drop ratio [%.2g]\n", asm_opt->min_drop_rate);
     fprintf(stderr, "    -i           ignore saved read correction and overlaps\n");
-    fprintf(stderr, "    -u           disable post-join step for contigs which may improve N50\n");
+    fprintf(stderr, "    -u           post-join step for contigs which may improve N50; 0 to disable; 1 to enable\n");
+    fprintf(stderr, "                 [%u] and [%u] in default for the UL+HiFi assembly and the HiFi assembly, respectively\n",
+                                      asm_opt->ul_pst_join, asm_opt->hifi_pst_join);
     fprintf(stderr, "    --hom-cov    INT\n");
     fprintf(stderr, "                 homozygous read coverage [auto]\n");
     fprintf(stderr, "    --lowQ       INT\n");
@@ -118,7 +135,7 @@ void Print_H(hifiasm_opt_t* asm_opt)
 
     fprintf(stderr, "  Purge-dups:\n");
     fprintf(stderr, "    -l INT       purge level. 0: no purging; 1: light; 2/3: aggressive [0 for trio; 3 for unzip]\n");
-    fprintf(stderr, "    -s FLOAT     similarity threshold for duplicate haplotigs [%g for -l1/-l2, %g for -l3]\n", 
+    fprintf(stderr, "    -s FLOAT     similarity threshold for duplicate haplotigs in read-level [%g for -l1/-l2, %g for -l3]\n", 
                                       asm_opt->purge_simi_rate_l2, asm_opt->purge_simi_rate_l3);
     fprintf(stderr, "    -O INT       min number of overlapped reads for duplicate haplotigs [%d]\n", 
                                       asm_opt->purge_overlap_len);
@@ -132,7 +149,9 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --h1 FILEs   file names of Hi-C R1  [r1_1.fq,r1_2.fq,...]\n");
     fprintf(stderr, "    --h2 FILEs   file names of Hi-C R2  [r2_1.fq,r2_2.fq,...]\n");
     fprintf(stderr, "    --seed INT   RNG seed [%lu]\n", asm_opt->seed);
-
+    fprintf(stderr, "    --s-base     FLOAT\n");
+	fprintf(stderr, "                 similarity threshold for homology detection in base-level;\n"); 
+    fprintf(stderr, "                 -1 to disable [%.3g]; -s for read-level (see <Purge-dups>)\n", asm_opt->trans_base_rate_sec);
     
     fprintf(stderr, "    --n-weight   INT\n");
     fprintf(stderr, "                 rounds of reweighting Hi-C links [%d]\n", asm_opt->n_weight);
@@ -143,7 +162,21 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --l-msjoin   INT\n");
     fprintf(stderr, "                 detect misjoined unitigs of >=INT in size; 0 to disable [%lu]\n", asm_opt->misjoin_len);
 
-    fprintf(stderr, "Example: ./modified_hifiasm -o NA12878.asm -t 32 NA12878.fq.gz\n");
+    fprintf(stderr, "  Ultra-Long-integration (beta):\n");
+    fprintf(stderr, "    --ul FILEs   file names of Ultra-Long reads [r1.fq,r2.fq,...]\n");
+    fprintf(stderr, "    --ul-rate    FLOAT\n");
+    fprintf(stderr, "                 error rate of Ultra-Long reads [%.3g]\n", asm_opt->ul_error_rate);
+    fprintf(stderr, "    --ul-tip     INT\n");
+    fprintf(stderr, "                 remove tip unitigs composed of <=INT reads for the UL assembly [%d]\n", asm_opt->max_short_ul_tip);
+    fprintf(stderr, "    --path-max   FLOAT\n");
+    fprintf(stderr, "                 max path drop ratio [%.2g]; higher number may make the assembly cleaner\n", asm_opt->max_path_drop_rate);
+    fprintf(stderr, "                 but may lead to more misassemblies\n");
+    fprintf(stderr, "    --path-min   FLOAT\n");
+    fprintf(stderr, "                 min path drop ratio [%.2g]; higher number may make the assembly cleaner\n", asm_opt->min_path_drop_rate);
+    fprintf(stderr, "                 but may lead to more misassemblies\n");
+    // fprintf(stderr, "    --low-het    enable it for genomes with very low het heterozygosity rate (<0.0001%%)\n");
+
+    fprintf(stderr, "Example: ./hifiasm -o NA12878.asm -t 32 NA12878.fq.gz\n");
     fprintf(stderr, "See `https://hifiasm.readthedocs.io/en/latest/' or `man ./hifiasm.1' for complete documentation.\n");
 }
 
@@ -156,18 +189,20 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->num_reads = 0;
     asm_opt->read_file_names = NULL;
     asm_opt->output_file_name = (char*)(DEFAULT_OUTPUT);
-    asm_opt->make_only_primary_contigs = 0; ///1 means "true", 0 means "false".
     asm_opt->required_read_name = NULL;
     asm_opt->hic_enzymes = NULL;
     asm_opt->hic_reads[0] = NULL;
     asm_opt->hic_reads[1] = NULL;
+    asm_opt->fn_bin_poy = NULL;
     asm_opt->ar = NULL;
     asm_opt->thread_num = 1;
     asm_opt->k_mer_length = 51;
     asm_opt->hic_mer_length = 31;
     asm_opt->ul_mer_length = 19;
+    asm_opt->trans_mer_length = 31;
 	asm_opt->mz_win = 51;
     asm_opt->ul_mz_win = 19;
+    asm_opt->trans_win = 31;
     asm_opt->mz_rewin = 1000;
     asm_opt->ul_mz_rewin = 360;
 	asm_opt->mz_sample_dist = 500;
@@ -178,7 +213,7 @@ void init_opt(hifiasm_opt_t* asm_opt)
 	asm_opt->max_ov_diff_final = 0.03;
 	asm_opt->hom_cov = 20;
     asm_opt->het_cov = -1024;
-	asm_opt->max_n_chain = 100;
+	asm_opt->max_n_chain = MIN_N_CHAIN;
 	asm_opt->min_hist_kmer_cnt = 5;
     asm_opt->load_index_from_disk = 1;
     asm_opt->write_index_to_disk = 1;
@@ -196,12 +231,15 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->min_overlap_Len = 50;
     asm_opt->min_overlap_coverage = 0;
     asm_opt->max_short_tip = 3;
+    asm_opt->max_short_ul_tip = 6;
     asm_opt->min_cnt = 2;
     asm_opt->mid_cnt = 5;
     asm_opt->purge_level_primary = 3;
     asm_opt->purge_level_trio = 0;
     asm_opt->purge_simi_rate_l2 = 0.75;
     asm_opt->purge_simi_rate_l3 = 0.55;
+    asm_opt->trans_base_rate = 0.93;
+    asm_opt->trans_base_rate_sec = 0.5;
     asm_opt->purge_overlap_len = 1;
     ///asm_opt->purge_overlap_len_hic = 50;
     asm_opt->recover_atg_cov_min = -1024;
@@ -229,6 +267,28 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->dp_min_len = 2000;
     asm_opt->dp_e = 0.0025;
     asm_opt->hg_size = -1;
+    asm_opt->kpt_rate = -1;
+    asm_opt->infor_cov = 3;
+    asm_opt->s_hap_cov = 3;
+    asm_opt->ul_error_rate = 0.2/**0.15**/;
+    asm_opt->ul_error_rate_low = 0.1;
+    asm_opt->ul_error_rate_hpc = 0.2;
+    asm_opt->ul_ec_round = 3;
+    asm_opt->is_dbg_het_cnt = 0;
+    asm_opt->is_low_het_ul = 0;
+    asm_opt->is_base_trans = 1;
+    asm_opt->is_read_trans = 1;
+    asm_opt->is_topo_trans = 1;
+    asm_opt->is_bub_trans = 1;
+    asm_opt->bin_only = 0;
+    asm_opt->ul_clean_round = 1;
+    asm_opt->prt_dbg_gfa = 0;
+    asm_opt->integer_correct_round = 0;
+    asm_opt->dbg_ovec_cal = 0;
+    asm_opt->min_path_drop_rate = 0.2;
+    asm_opt->max_path_drop_rate = 0.6;
+    asm_opt->hifi_pst_join = 1;
+    asm_opt->ul_pst_join = 1;
 }
 
 void destory_enzyme(enzyme* f)
@@ -270,6 +330,14 @@ void ha_opt_update_cov(hifiasm_opt_t *opt, int hom_cov)
 	opt->hom_cov = hom_cov;
 	if (opt->max_n_chain < max_n_chain)
 		opt->max_n_chain = max_n_chain;
+	fprintf(stderr, "[M::%s] updated max_n_chain to %d\n", __func__, opt->max_n_chain);
+}
+
+void ha_opt_update_cov_min(hifiasm_opt_t *opt, int hom_cov, int min_chain)
+{
+	int max_n_chain = (int)(hom_cov * opt->high_factor + .499);
+	opt->hom_cov = hom_cov; opt->max_n_chain = max_n_chain;
+    if(opt->max_n_chain < min_chain) opt->max_n_chain = min_chain;
 	fprintf(stderr, "[M::%s] updated max_n_chain to %d\n", __func__, opt->max_n_chain);
 }
 
@@ -658,7 +726,7 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
 
     int c;
 
-    while ((c = ketopt(&opt, argc, argv, 1, "hvt:o:k:w:m:n:r:a:b:z:x:y:p:c:d:M:P:if:D:FN:1:2:3:4:l:s:O:eu", long_options)) >= 0) {
+    while ((c = ketopt(&opt, argc, argv, 1, "hvt:o:k:w:m:n:r:a:b:z:x:y:p:c:d:M:P:if:D:FN:1:2:3:4:5:l:s:O:eu:", long_options)) >= 0) {
         if (c == 'h')
         {
             Print_H(asm_opt);
@@ -688,14 +756,21 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
         else if (c == '2' || c == 'M') asm_opt->fn_bin_yak[1] = opt.arg;
         else if (c == '3') asm_opt->fn_bin_list[0] = opt.arg;
         else if (c == '4') asm_opt->fn_bin_list[1] = opt.arg;
+        else if (c == '5') asm_opt->fn_bin_poy = opt.arg;
         else if (c == 'x') asm_opt->max_drop_rate = atof(opt.arg);
         else if (c == 'y') asm_opt->min_drop_rate = atof(opt.arg);
         else if (c == 'p') asm_opt->small_pop_bubble_size = atoll(opt.arg);
         else if (c == 'm') asm_opt->large_pop_bubble_size = atoll(opt.arg);
         else if (c == 'n') asm_opt->max_short_tip = atoll(opt.arg);
         else if (c == 'e') asm_opt->flag |= HA_F_BAN_ASSEMBLY;
-        else if (c == 'u') asm_opt->flag |= HA_F_BAN_POST_JOIN;
-		else if (c == 301) asm_opt->flag |= HA_F_VERBOSE_GFA;
+        else if (c == 'u') {
+            if(atoll(opt.arg)) {
+                asm_opt->hifi_pst_join = asm_opt->ul_pst_join = 1;
+            } else {
+                asm_opt->hifi_pst_join = asm_opt->ul_pst_join = 0;
+            }
+        }
+        else if (c == 301) asm_opt->flag |= HA_F_VERBOSE_GFA;
 		else if (c == 302) asm_opt->flag |= HA_F_WRITE_PAF;
 		else if (c == 303) asm_opt->flag |= HA_F_WRITE_EC;
 		else if (c == 304) asm_opt->flag |= HA_F_SKIP_TRIOBIN;
@@ -742,9 +817,24 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
         else if (c == 332) asm_opt->hg_size = inter_gsize(opt.arg);      
         else if (c == 333) get_hic_enzymes(opt.arg, &(asm_opt->ar), 0);
         else if (c == 334) asm_opt->flag |= HA_F_USKEW;
-        else if (c == 335) asm_opt->make_only_primary_contigs = 1; ///1 means "true", 0 means "false".
-        else if (c == 'l')
-        {   ///0: disable purge_dup; 1: purge containment; 2: purge overlap
+        else if (c == 335) asm_opt->kpt_rate = atof(opt.arg);
+        else if (c == 336) asm_opt->ul_error_rate = atof(opt.arg);
+        else if (c == 337) asm_opt->is_dbg_het_cnt = 1;
+        else if (c == 338) asm_opt->max_short_ul_tip = atol(opt.arg);
+        else if (c == 339) asm_opt->is_low_het_ul = 1;
+        else if (c == 340) {
+            asm_opt->trans_base_rate_sec = atof(opt.arg);
+            if(asm_opt->trans_base_rate_sec < 0) asm_opt->is_base_trans = 0;
+        } 
+        else if (c == 341) asm_opt->bin_only = 1;
+        else if (c == 342) asm_opt->ul_clean_round = atol(opt.arg);
+        else if (c == 343) asm_opt->prt_dbg_gfa = 1;
+        else if (c == 344) asm_opt->integer_correct_round = atol(opt.arg);
+        else if (c == 345) asm_opt->dbg_ovec_cal = 1;
+        else if (c == 346) asm_opt->max_path_drop_rate = atof(opt.arg);
+        else if (c == 347) asm_opt->min_path_drop_rate = atof(opt.arg);
+		else if (c == 348) asm_opt->make_only_primary_contigs = 1; ///1 means "true", 0 means "false".
+        else if (c == 'l') {   ///0: disable purge_dup; 1: purge containment; 2: purge overlap
             asm_opt->purge_level_primary = asm_opt->purge_level_trio = atoi(opt.arg);
         }
         else if (c == 's') asm_opt->purge_simi_rate_l2 = asm_opt->purge_simi_rate_l3 = atof(opt.arg);
@@ -760,10 +850,9 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
 			return 1;
 		}
     }
-
+    
     if(asm_opt->purge_level_primary > 2) asm_opt->purge_simi_thres = asm_opt->purge_simi_rate_l3;
     else asm_opt->purge_simi_thres = asm_opt->purge_simi_rate_l2;
-
     
     if (argc == opt.ind)
     {
@@ -772,6 +861,16 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
     }
 
     get_queries(argc, argv, &opt, asm_opt);
+
+    c = ((asm_opt->ar)?(asm_opt->ul_pst_join):(asm_opt->hifi_pst_join));
+    if(c) {
+        if((asm_opt->flag&HA_F_BAN_POST_JOIN)) asm_opt->flag-=HA_F_BAN_POST_JOIN;
+    } else {
+        asm_opt->flag |= HA_F_BAN_POST_JOIN;
+    }
+
+    // fprintf(stderr, "[M::%s::] post join::%u\n", __func__, (uint32_t)(!(asm_opt->flag & HA_F_BAN_POST_JOIN)));
+    // exit(1);
 
     return check_option(asm_opt);
 }

@@ -11,6 +11,11 @@ export SAMTOOLS_DIR = ${ROOT_DIR}/lib/samtools-1.9
 export CXXFLAGS += ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} -I${MINIMAP2_DIR}
 export LDFLAGS += -lz -L${MINIMAP2_DIR} -lminimap2
 
+ifeq ($(shell uname -m),arm64)
+	export arm_neon=1
+	export aarch64=1
+endif
+
 .PHONY: clean all profile debug minimap2 samtools
 
 .DEFAULT_GOAL := all

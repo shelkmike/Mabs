@@ -1,3 +1,122 @@
+Release 2.24-r1122 (26 December 2021)
+-------------------------------------
+
+This release improves alignment around long poorly aligned regions. Older
+minimap2 may chain through such regions in rare cases which may result in
+missing alignments later. The issue has become worse since the the change of
+the chaining algorithm in v2.19. v2.23 implements an incomplete remedy. This
+release provides a better solution with a X-drop-like heuristic and by enabling
+two-bandwidth chaining in the assembly mode.
+
+(2.24: 26 December 2021, r1122)
+
+
+
+Release 2.23-r1111 (18 November 2021)
+-------------------------------------
+
+Notable changes:
+
+ * Bugfix: fixed missing alignments around long inversions (#806 and #816).
+   This bug affected v2.19 through v2.22.
+
+ * Improvement: avoid extremely long mapping time for pathologic reads with
+   highly repeated k-mers not in the reference (#771). Use --q-occ-frac=0
+   to disable the new heuristic.
+
+ * Change: use --cap-kalloc=1g by default.
+
+(2.23: 18 November 2021, r1111)
+
+
+
+Release 2.22-r1101 (7 August 2021)
+----------------------------------
+
+When choosing the best alignment, this release uses logarithm gap penalty and
+query-specific mismatch penalty. It improves the sensitivity to long INDELs in
+repetitive regions.
+
+Other notable changes:
+
+ * Bugfix: fixed an indirect memory leak that may waste a large amount of
+   memory given highly repetitive reference such as a 16S RNA database (#749).
+   All versions of minimap2 have this issue.
+
+ * New feature: added --cap-kalloc to reduce the peak memory. This option is
+   not enabled by default but may become the default in future releases.
+
+Known issue:
+
+ * Minimap2 may take a long time to map a read (#771). So far it is not clear
+   if this happens to v2.18 and earlier versions.
+
+(2.22: 7 August 2021, r1101)
+
+
+
+Release 2.21-r1071 (6 July 2021)
+--------------------------------
+
+This release fixed a regression in short-read mapping introduced in v2.19
+(#776). It also fixed invalid comparisons of uninitialized variables, though
+these are harmless (#752). Long-read alignment should be identical to v2.20.
+
+(2.21: 6 July 2021, r1071)
+
+
+
+Release 2.20-r1061 (27 May 2021)
+--------------------------------
+
+This release fixed a bug in the Python module and improves the command-line
+compatibiliity with v2.18. In v2.19, if `-r` is specified with an `asm*` preset,
+users would get alignments more fragmented than v2.18. This could be an issue
+for existing pipelines specifying `-r`. This release resolves this issue.
+
+(2.20: 27 May 2021, r1061)
+
+
+
+Release 2.19-r1057 (26 May 2021)
+--------------------------------
+
+This release includes a few important improvements backported from unimap:
+
+ * Improvement: more contiguous alignment through long INDELs. This is enabled
+   by the minigraph chaining algorithm. All `asm*` presets now use the new
+   algorithm. They can find INDELs up to 100kb and may be faster for
+   chromosome-long contigs. The default mode and `map*` presets use this
+   algorithm to replace the long-join heuristic.
+
+ * Improvement: better alignment in highly repetitive regions by rescuing
+   high-occurrence seeds. If the distance between two adjacent seeds is too
+   large, attempt to choose a fraction of high-occurrence seeds in-between.
+   Minimap2 now produces fewer clippings and alignment break points in long
+   satellite regions.
+
+ * Improvement: allow to specify an interval of k-mer occurrences with `-U`.
+   For repeat-rich genomes, the automatic k-mer occurrence threshold determined
+   by `-f` may be too large and makes alignment impractically slow. The new
+   option protects against such cases. Enabled for `asm*` and `map-hifi`.
+
+ * New feature: added the `map-hifi` preset for maping PacBio High-Fidelity
+   (HiFi) reads.
+
+ * Change to the default: apply `--cap-sw-mem=100m` for genomic alignment.
+
+ * Bugfix: minimap2 could not generate an index file with `-xsr` (#734).
+
+This release represents the most signficant algorithmic change since v2.1 in
+2017. With features backported from unimap, minimap2 now has similar power to
+unimap for contig alignment. Unimap will remain an experimental project and is
+no longer recommended over minimap2. Sorry for reverting the recommendation in
+short time.
+
+(2.19: 26 May 2021, r1057)
+
+
+
 Release 2.18-r1015 (9 April 2021)
 ---------------------------------
 

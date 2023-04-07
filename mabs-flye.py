@@ -110,8 +110,9 @@ if __name__ == '__main__':
 
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-flye всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
+	s_additional_flye_parameters = "" #дополнительные параметры Flye.
 	
-	s_Mabs_version = "2.14"
+	s_Mabs_version = "2.18"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
@@ -133,11 +134,12 @@ Main options:
 8) --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
 9) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
 10) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
+11) --additional_flye_parameters        A string with additional parameters to be passed to Flye, enclosed in square brackets. Example: "--additional_flye_parameters [--scaffold --min-overlap 20000]".
 
 Informational options:
-11) --help        Print this help.
-12) --version        Print the version of Mabs-flye.
-13) --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
+12) --help        Print this help.
+13) --version        Print the version of Mabs-flye.
+14) --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
 
 Example 1:
 mabs-flye.py --nanopore_reads nanopore_reads.fastq --download_busco_dataset eudicots_odb10.2020-09-10.tar.gz --threads 40
@@ -224,6 +226,38 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 		if (len(sys.argv) == 1) or re.search(r"\s\-\-version", s_command_line):
 			print("Mabs-flye " + s_Mabs_version)
 			sys.exit()
+		
+		#смотрю, указал ли пользователь в командной строке дополнительные параметры Flye. Этот парсинг я делаю перед парсингом опций собственно Mabs-flye, иначе, если у Flye и Mabs-flye есть одноимённые опции, и пользователь укажет одну из таких опций через "--additional_hifiasm_parameters", то Mabs-flye подумает, что это его опция.
+		o_regular_expression_results = re.search(r" --additional_flye_parameters \[(.*?)\]", s_command_line_reduced)
+		if o_regular_expression_results:
+			s_additional_flye_parameters = o_regular_expression_results.group(1)
+			
+			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
+			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
+		
+		#проверяю, что пользователь не дал опцией --additional_flye_parameters следующие опции: --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative . Это потому, что Mabs-flye их и так использует.
+		if re.search(r"\-\-nano\-raw ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"--nano-raw\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-\-out\-dir ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"--out-dir\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-\-threads ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"--threads\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-\-no\-alt\-contigs ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"--no-alt-contigs\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-\-nano\-raw ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"--genome-size\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-o ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"-o\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-t ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"-t\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"\-g ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"-g\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"assemble_ovlp_divergence ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"assemble_ovlp_divergence\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"repeat_graph_ovlp_divergence ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"repeat_graph_ovlp_divergence\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
+		if re.search(r"assemble_divergence_relative ", s_additional_flye_parameters):
+			l_errors_in_command_line.append("You have given Mabs-flye the option \"assemble_divergence_relative\" via the option \"--additional_flye_parameters\". The following options cannot be passed via \"--additional_flye_parameters\": --nano-raw, --out-dir, --threads, --no-alt-contigs, --genome-size, -o, -t, -g, assemble_ovlp_divergence, repeat_graph_ovlp_divergence, assemble_divergence_relative.")
 		
 		#смотрю, дал ли пользователь риды Нанопора
 		o_regular_expression_results = re.search(r" --nanopore_reads (\S+)", s_command_line_reduced)
@@ -669,10 +703,10 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 
 	#если пользователь не указывал размер генома
 	if s_genome_size_estimate == "auto":
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 	#если пользователь указал размер генома
 	else:
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 		
 	
 	#Смотрю, получился ли файл assembly.fasta. Его может не быть, если Flye не собрал ни одного дисджойнтига — в таком случае Flye прекращает работу преждевременно, не выдавая файла assembly.fasta. То, что Flye не выдал ни одного дисджойнтига, может быть связано с тем, что для ридов с большим количеством ошибок Mabs-flye попробовал очень маленький max_divergence. В случае, если файла assembly.fasta нет, я, даже не запуская скрипт calculate_AG.py, сразу считаю, что AG=0.
@@ -712,10 +746,10 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 
 	#если пользователь не указывал размер генома
 	if s_genome_size_estimate == "auto":
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 	#если пользователь указал размер генома
 	else:
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 
 	#Смотрю, получился ли файл assembly.fasta. Его может не быть, если Flye не собрал ни одного дисджойнтига — в таком случае Flye прекращает работу преждевременно, не выдавая файла assembly.fasta. То, что Flye не выдал ни одного дисджойнтига, может быть связано с тем, что для ридов с большим количеством ошибок Mabs-flye попробовал очень маленький max_divergence. В случае, если файла assembly.fasta нет, я, даже не запуская скрипт calculate_AG.py, сразу считаю, что AG=0.
 	if not os.path.isfile(s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + "/assembly.fasta"):
@@ -768,10 +802,10 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 			
 			#если пользователь не указывал размер генома
 			if s_genome_size_estimate == "auto":
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 			#если пользователь указал размер генома
 			else:
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 			
 			#Смотрю, получился ли файл assembly.fasta. Его может не быть, если Flye не собрал ни одного дисджойнтига — в таком случае Flye прекращает работу преждевременно, не выдавая файла assembly.fasta. То, что Flye не выдал ни одного дисджойнтига, может быть связано с тем, что для ридов с большим количеством ошибок Mabs-flye попробовал очень маленький max_divergence. В случае, если файла assembly.fasta нет, я, даже не запуская скрипт calculate_AG.py, сразу считаю, что AG=0.
 			if not os.path.isfile(s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + "/assembly.fasta"):
@@ -819,10 +853,10 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 
 			#если пользователь не указывал размер генома
 			if s_genome_size_estimate == "auto":
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")
+				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 			#если пользователь указал размер генома
 			else:
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0")			
+				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_all_long_reads_that_correspond_to_busco_genes + " --out-dir " + s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + " --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)			
 			
 			#Смотрю, получился ли файл assembly.fasta. Его может не быть, если Flye не собрал ни одного дисджойнтига — в таком случае Flye прекращает работу преждевременно, не выдавая файла assembly.fasta. То, что Flye не выдал ни одного дисджойнтига, может быть связано с тем, что для ридов с большим количеством ошибок Mabs-flye попробовал очень маленький max_divergence. В случае, если файла assembly.fasta нет, я, даже не запуская скрипт calculate_AG.py, сразу считаю, что AG=0.
 			if not os.path.isfile(s_path_to_the_output_folder + "/Gene_assembly_for_max_divergence_" + str(n_max_divergence) + "/assembly.fasta"):
@@ -870,10 +904,10 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	
 	#если пользователь не указывал размер генома
 	if s_genome_size_estimate == "auto":
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_the_file_with_all_long_reads + " --out-dir " + s_path_to_the_output_folder + "/The_best_assembly --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",assemble_divergence_relative=0")
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_the_file_with_all_long_reads + " --out-dir " + s_path_to_the_output_folder + "/The_best_assembly --threads " + str(n_number_of_cpu_threads_to_use) + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 	#если пользователь указал размер генома
 	else:
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_the_file_with_all_long_reads + " --out-dir " + s_path_to_the_output_folder + "/The_best_assembly --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",assemble_divergence_relative=0")
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Flye/bin/flye --nano-raw " + s_path_to_the_file_with_all_long_reads + " --out-dir " + s_path_to_the_output_folder + "/The_best_assembly --threads " + str(n_number_of_cpu_threads_to_use) + " --genome-size " + s_genome_size_estimate + " --no-alt-contigs --extra-params assemble_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",repeat_graph_ovlp_divergence=" + str(n_max_divergence_that_provides_maximum_AG) + ",assemble_divergence_relative=0 " + s_additional_flye_parameters)
 	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")

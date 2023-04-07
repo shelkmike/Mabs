@@ -205,15 +205,16 @@ Do I need to preprocess my reads in any way?
 --------------------------------------------
 
 No, usually it is not necessary. Flye automatically filters out
-chimeric reads or reads with bad ends. If the read coverage is very high,
-you can use the built-in `--asm-coverage` option for subsampling the longest ones.
+chimeric reads or reads with bad ends. Adapter trimming and quality
+filtering is not needed either.
 
-Note that in PacBio mode, Flye assumes that the input files represent PacBio subreads,
+If the read coverage is very high, you can use the built-in `--asm-coverage` option for subsampling the longest ones.
+
+Note that in PacBio CLR mode, Flye assumes that the input files represent PacBio subreads,
 e.g. adaptors and scraps are removed and multiple passes of the same insertion
 sequence are separated. This is typically handled by PacBio instruments/toolchains,
-however we saw examples of problemmatic raw -> fastq conversions, 
-which resulted into incorrect subreads. In this case, 
-consider using [pbclip](https://github.com/fenderglass/pbclip) to fix your Fasta/q reads.
+however we saw examples of problemmatic raw -> fastq conversions with old CLR data. 
+In this case, consider using [pbclip](https://github.com/fenderglass/pbclip) to fix your Fasta/q reads.
 
 Are cluster environments (SGE / Slurm etc.) supported?
 ------------------------------------------------------

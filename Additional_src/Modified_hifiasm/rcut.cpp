@@ -1,12 +1,15 @@
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
+#include "assert.h"
 #include "rcut.h"
 #include "Purge_Dups.h"
 #include "Correct.h"
 #include "ksort.h"
 #include "kthread.h"
 #include "hic.h"
+#include "horder.h"
 
 #define VERBOSE_CUT 0
 
@@ -93,6 +96,30 @@ typedef struct{
 	mc_match_t *ma;
 	bits_p *vis;
 }mc_bp_t;
+
+typedef struct{
+	kvec_t(uint32_t) nn;
+	kvec_t(uint64_t) ng;
+} nn_clus_t;
+
+typedef struct{
+	bits_p vis;
+	t_w_t w;
+	uint32_t off, occ;
+}clus_flip_aux;
+
+typedef struct{
+	nn_clus_t cc;
+	bubble_type* bub; 
+	const mc_opt_t *opt; 
+	mc_g_t *mg;
+	uint8_t *lock, lock_max, dbg;
+	uint32_t n, n_thread;
+	clus_flip_aux *aux;
+	mc_svaux_t *baux;
+	asg64_v *asn;
+	scg_t sg;
+} mc_clus_t;
 
 typedef struct {
 	uint64_t x; // RNG
@@ -634,7 +661,7 @@ mb_g_t *init_mb_g_t(mc_match_t* e, kv_u_trans_t *ref, uint32_t is_sys)
 			for (m = 0; m < n; m++)
 			{
 				tn = ma_y(o[m]);
-				tb = p->u->idx.a[tn]>>1;
+				tb = p->u->idx.a[tn]>>1;///tn is the unitig id; tb is the block id
 				if(tb == qb)
 				{
 					continue;
@@ -1685,6 +1712,7 @@ static t_w_t mc_optimize_local(const mc_opt_t *opt, const mc_match_t *ma, mc_sva
 			if (b->z[k].z[0] == b->z[k].z[1]) continue;
 			s = b->z[k].z[0] > b->z[k].z[1]? -1 : 1;
 			if (b->s[k] != s) {
+				// fprintf(stderr, "utg%.6dl, s[k]::%d, s::%d\n", (int32_t)(k)+1, b->s[k], s);
 				mc_set_spin(ma, b, k, s);///no need to change the score of k itself
 				++n_flip;
 			}
@@ -1901,7 +1929,7 @@ uint8_t *lock, bits_p *vis, uint64_t id, mc_bp_res* r)
 	reset_mc_bp_iter(bp, &i, id);
 	memset(vis->a, 0, vis->n);
 	max_bid = max_uid = (uint32_t)-1;
-	f_bid = i.bid; f_uid = i.uid;
+	f_bid = i.bid; f_uid = i.uid;///f_bid::bubble id, f_uid::unitig id
 
 	while (1)
 	{
@@ -2079,6 +2107,18 @@ t_w_t mc_score_all_advance(const mc_match_t *ma, int8_t *s)
 	return zt;
 }
 
+void mc_status_all(const mc_match_t *ma, int8_t *s)
+{
+	t_w_t tt_w = mc_score_all_advance(ma, s);
+	uint64_t k, nn = 0, ne = 0;
+	for (k = 0; k < ma->n_seq; ++k) {
+		if((uint32_t)ma->idx.a[k]) nn++;
+		ne += (uint32_t)ma->idx.a[k];
+	}
+	fprintf(stderr, "[M::%s::] ==> # nodes: %lu, # edges: %lu, weight: %f\n", __func__, nn, ne, tt_w);
+}
+
+
 t_w_t mb_score_all_advance(const mc_match_t *ma, mb_g_t *mbg)
 {
 	uint32_t k;
@@ -2194,6 +2234,629 @@ uint32_t mc_solve_cc(const mc_opt_t *opt, const mc_g_t *mg, mc_svaux_t *b, uint3
 		b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
 	}
 		
+	return n_iter;
+}
+
+#define clus_a(b, id) (((b)).cc.nn.a+(((b)).cc.ng.a[(id)]>>32))
+#define clus_n(b, id) (((uint32_t)((((b)).cc.ng.a[(id)]))))
+
+
+void reorder_bub(const mc_match_t *ma, uint32_t *a, uint32_t a_n, uint8_t *ff, uint8_t lf, uint8_t rf, uint8_t cf,
+uint8_t cuf, double *sc_l, double *sc_r, double *sc_m, uint32_t *res)
+{
+	uint32_t k, o, j, n, t, z; mc_edge_t *e; 
+	double mm_l, mm_r, m_inner, mm; int64_t mmlk, mmrk, rev, m_inner_k, mmk;
+	for (k = 0; k < a_n; k++) ff[a[k]] = cf;
+	m_inner = 0; m_inner_k = -1; mm_l = mm_r = 0; mmlk = mmrk = -1;
+	for (k = 0, rev = -1; k < a_n; k++) {
+		sc_l[k] = sc_r[k] = sc_m[k] = 0;
+		o = ma->idx.a[a[k]] >> 32; n = (uint32_t)ma->idx.a[a[k]];
+		for (j = 0; j < n; ++j) {
+			e = &ma->ma.a[o + j];
+			t = ma_y(*e);
+			if(ff[t] == lf) sc_l[k] += fabs(e->w);
+			if(ff[t] == rf) sc_r[k] += fabs(e->w);
+			if(ff[t] == cf) sc_m[k] += fabs(e->w);
+		}
+		if(sc_l[k] > 0) {
+			if(sc_l[k] > mm_l) {
+				mm_l = sc_l[k]; mmlk = k; 
+			}
+		} else if(sc_r[k] > 0) {
+			if(sc_r[k] > mm_r) {
+				mm_r = sc_r[k]; mmrk = k; 
+			}
+		} else if(sc_m[k] > 0 && sc_m[k] > m_inner) {
+			m_inner = sc_m[k]; m_inner_k = k;
+		}
+	}
+	if(mmlk == -1 && mmrk == -1 && m_inner_k == -1) return;
+	if(mmlk != -1) {
+		mm = mm_l; mmk = mmlk; rev = 0;
+	} else if(mmrk != -1) {
+		mm = mm_r; mmk = mmrk; rev = 1;
+	} else {
+		mm = m_inner; mmk = m_inner_k; rev = 0;
+	}
+
+	double *sc = (!rev)?sc_l:sc_r;
+	// for (k = 0; k < a_n; k++) {
+	// 	// sc_m[k] = 0;
+	// 	fprintf(stderr, "+[M::%s] a_n::%u, a[%u]::%u\n", __func__, a_n, k, a[k]);
+	// }
+	
+	z = 0; res[z++] = a[mmk]; ff[a[mmk]] = cuf; 
+	for (; z < a_n; ) {
+		for (k = 0, mm = 0, mmk = -1; k < a_n; k++) {
+			if(ff[a[k]] == cuf) continue;
+			o = ma->idx.a[a[k]] >> 32; n = (uint32_t)ma->idx.a[a[k]];
+			for (j = 0; j < n; ++j) {
+				e = &ma->ma.a[o + j];
+				t = ma_y(*e);
+				if(ff[t] == cuf) sc[k] += fabs(e->w);
+				// if(ff[t] == cuf) sc_m[k] += fabs(e->w);
+			}
+
+			if(sc[k] > 0) {
+				if(sc[k] > mm) {
+					mm = sc[k]; mmk = k; 
+				}
+			}
+		}
+		if(mmk == -1) break;
+		// fprintf(stderr, "-[M::%s] mmk::%ld, a[%ld]::%u, z::%u\n", __func__, mmk, mmk, a[mmk], z);
+		res[z++] = a[mmk]; ff[a[mmk]] = cuf; 
+	}
+	// fprintf(stderr, "[M::%s] a_n::%u, z::%u\n", __func__, a_n, k, z);
+	if(z < a_n) {
+		for (k = 0; k < a_n; k++) {
+			if(ff[a[k]] == cuf) continue;
+			res[z++] = a[k]; ff[a[k]] = cuf;
+		}
+	}
+	assert(z == a_n);
+	if(!rev) {
+		for (k = 0; k < a_n; k++) {
+			a[k] = res[k]; 
+			// fprintf(stderr, "[M::%s] a_n::%u, a[k]::%u, res[k]::%u\n", __func__, a_n, a[k], res[k]);
+			ff[a[k]] = lf;
+		}
+	} else {
+		for (k = 0; k < a_n; k++) {
+			a[k] = res[a_n-k-1]; ff[a[k]] = lf;
+		}
+	}
+}
+
+void prt_bub(uint32_t *a, uint32_t a_n, const char *cmd) 
+{
+	uint32_t k;
+	fprintf(stderr, "%s\n", cmd);
+	for (k = 0; k < a_n; k++) {
+		fprintf(stderr, "utg%.6dl\t", (int32_t)a[k]+1);
+	}
+	fprintf(stderr, "\n");
+	
+}
+
+void renew_mc_clus_t(mc_clus_t *bc, uint32_t *a, uint32_t a_n)
+{
+	if(!bc) return;
+	// fprintf(stderr, "[M::%s] a_n::%u\n", __func__, a_n);
+	uint32_t k, i, *ba, bn, m, cocc, iin, /**bub_occ = 0,**/ bbn = 0; uint64_t *p; ma_utg_t *u = NULL;
+	kvec_t(double) sc_l; kvec_t(double) sc_r; kvec_t(double) sc_m; kvec_t(uint32_t) tmp;
+	kv_init(sc_l); kv_init(sc_r); kv_init(sc_m); kv_init(tmp);
+	
+	bc->cc.ng.n = bc->cc.nn.n = 0;
+	memset(bc->lock, 0, sizeof((*(bc->lock)))*bc->n);///bc->n: number of all nodes
+	for (k = 0; k < a_n; k++) bc->lock[a[k]] = 1;///a_n: number of nodes within the cluster
+
+	kv_resize(uint32_t, bc->cc.nn, a_n);
+	// for (i = 0; i < bc->bub->chain_weight.n; i++) {
+    //     if(bc->bub->chain_weight.a[i].del) continue;
+    //     u = &(bc->bub->b_ug->u.a[bc->bub->chain_weight.a[i].id]);///list of bubbles
+	for (i = 0; i < bc->bub->b_ug->u.n; i++) {
+        u = &(bc->bub->b_ug->u.a[i]);
+        if(u->n == 0) continue;
+		// bub_occ += u->n;
+		// fprintf(stderr, "[M::%s] i::%u, u->n::%u\n", __func__, i, (uint32_t)u->n);
+        for (k = cocc = 0, iin = bc->cc.nn.n; k < u->n; k++) {
+            get_bubbles(bc->bub, u->a[k]>>33, NULL, NULL, &ba, &bn, NULL);
+			kv_pushp(uint64_t, bc->cc.ng, &p); bbn += bn;
+			*p = bc->cc.nn.n;///a bubble
+			for (m = 0; m < bn; m++) {
+				if(!(bc->lock[ba[m]>>1])) continue;///if the node of bubble is not at this cluster
+				kv_push(uint32_t, bc->cc.nn, (ba[m]>>1));
+				bc->lock[ba[m]>>1] = 2;
+            }
+			if(bc->cc.nn.n <= (*p)) {///no node in this bubble
+				bc->cc.ng.n--;
+				continue;
+			}
+			*p <<= 32; *p |= (bc->cc.nn.n-((*p)>>32)); cocc++;
+        }
+		//split the chain if there is multipe bubbles
+		if(cocc > 0) {//cocc: # of bubbles in this chain
+			for (k = bc->cc.ng.n - cocc; k < bc->cc.ng.n; k++) {
+				kv_resize(double, sc_l, clus_n((*bc), k)); 
+				kv_resize(double, sc_r, clus_n((*bc), k)); 
+				kv_resize(double, sc_m, clus_n((*bc), k)); 
+				kv_resize(uint32_t, tmp, clus_n((*bc), k)); 
+				// prt_bub(clus_a((*bc), k), clus_n((*bc), k), "-0-"); 
+				reorder_bub(bc->mg->e, clus_a((*bc), k), clus_n((*bc), k), bc->lock, 3, 2, 4, 5, 
+				sc_l.a, sc_r.a, sc_m.a, tmp.a);
+				// prt_bub(clus_a((*bc), k), clus_n((*bc), k), "-1-"); 
+			}
+			for (k = iin; k < bc->cc.nn.n; k++) bc->lock[bc->cc.nn.a[k]] = 1;//reset
+			kv_pushp(uint64_t, bc->cc.ng, &p); *p = (uint64_t)-1; ///cluster
+			kv_push(uint32_t, bc->cc.nn, ((uint32_t)-1)); ///split, node id
+		}
+    }
+
+	for (k = 0; k < a_n; k++) bc->lock[a[k]] = 0;
+	kv_destroy(sc_l); kv_destroy(sc_r); kv_destroy(sc_m); kv_destroy(tmp);
+	// fprintf(stderr, "[M::%s] a_n::%u, bc->cc.nn.n::%u, bc->cc.ng.n::%u, bbn::%u, bub_occ::%u, bc->bub->b_ug->u.n::%u\n", __func__, 
+	// a_n, (uint32_t)bc->cc.nn.n, (uint32_t)bc->cc.ng.n, bbn, bub_occ, (uint32_t)bc->bub->b_ug->u.n);
+}
+
+
+void renew_mc_clus_t_adv(mc_clus_t *bc, uint32_t *a, uint32_t a_n)
+{
+	if(!bc) return;
+	// fprintf(stderr, "[M::%s] a_n::%u\n", __func__, a_n);
+	uint32_t k, i, *ba, bn, m, cocc, iin, /**bub_occ = 0,**/ bbn = 0, bid, bk, bl; 
+	uint64_t *p; ma_utg_t *u = NULL; asg64_v *asn = bc->asn;
+	kvec_t(double) sc_l; kvec_t(double) sc_r; kvec_t(double) sc_m; kvec_t(uint32_t) tmp;
+	kv_init(sc_l); kv_init(sc_r); kv_init(sc_m); kv_init(tmp);
+	
+	bc->cc.ng.n = bc->cc.nn.n = 0;
+	memset(bc->lock, 0, sizeof((*(bc->lock)))*bc->n);///bc->n: number of all nodes
+	for (k = 0; k < a_n; k++) bc->lock[a[k]] = 1;///a_n: number of nodes within the cluster
+
+	kv_resize(uint32_t, bc->cc.nn, a_n);
+	for (i = bid = bk = 0; i < bc->bub->b_ug->u.n; i++) {
+        u = &(bc->bub->b_ug->u.a[i]);
+        if(u->n == 0) continue;
+		// bub_occ += u->n;
+		// fprintf(stderr, "[M::%s] i::%u, u->n::%u\n", __func__, i, (uint32_t)u->n);
+        for (k = cocc = 0, iin = bc->cc.nn.n; k < u->n; k++, bid++) {
+            get_bubbles(bc->bub, u->a[k]>>33, NULL, NULL, &ba, &bn, NULL);
+			kv_pushp(uint64_t, bc->cc.ng, &p); bbn += bn;
+			*p = bc->cc.nn.n;///a bubble
+			for (m = 0; m < bn; m++) {
+				if(!(bc->lock[ba[m]>>1])) continue;///if the node of bubble is not at this cluster
+				kv_push(uint32_t, bc->cc.nn, (ba[m]>>1));
+				bc->lock[ba[m]>>1] = 2;
+            }
+			if(asn) {
+				for (; bk < asn->n && (asn->a[bk]>>32) < bid; bk++);
+				for (; bk < asn->n && (asn->a[bk]>>32) == bid; bk++) {
+					if(!(bc->lock[((uint32_t)asn->a[bk])])) continue;///if the node of bubble is not at this cluster
+					kv_push(uint32_t, bc->cc.nn, ((uint32_t)asn->a[bk]));
+					bc->lock[((uint32_t)asn->a[bk])] = 2;
+				}
+			}
+			
+			if(bc->cc.nn.n <= (*p)) {///no node in this bubble
+				bc->cc.ng.n--;
+				continue;
+			}
+			*p <<= 32; *p |= (bc->cc.nn.n-((*p)>>32)); cocc++;
+        }
+		//split the chain if there is multipe bubbles
+		if(cocc > 0) {//cocc: # of bubbles in this chain
+			for (k = bc->cc.ng.n - cocc; k < bc->cc.ng.n; k++) {
+				kv_resize(double, sc_l, clus_n((*bc), k)); 
+				kv_resize(double, sc_r, clus_n((*bc), k)); 
+				kv_resize(double, sc_m, clus_n((*bc), k)); 
+				kv_resize(uint32_t, tmp, clus_n((*bc), k)); 
+				// prt_bub(clus_a((*bc), k), clus_n((*bc), k), "-0-"); 
+				reorder_bub(bc->mg->e, clus_a((*bc), k), clus_n((*bc), k), bc->lock, 3, 2, 4, 5, 
+				sc_l.a, sc_r.a, sc_m.a, tmp.a);
+				// prt_bub(clus_a((*bc), k), clus_n((*bc), k), "-1-"); 
+			}
+			for (k = iin; k < bc->cc.nn.n; k++) bc->lock[bc->cc.nn.a[k]] = 1;//reset
+			kv_pushp(uint64_t, bc->cc.ng, &p); *p = (uint64_t)-1; ///cluster
+			kv_push(uint32_t, bc->cc.nn, ((uint32_t)-1)); ///split, node id
+		}
+    }
+
+	if(asn) {
+		for (bl = bk, bk = bk + 1; bk <= asn->n; bk++) {
+			if(bk == asn->n || (asn->a[bk]>>32) != (asn->a[bl]>>32)) {
+				cocc = 0; iin = bc->cc.nn.n;
+				kv_pushp(uint64_t, bc->cc.ng, &p); bbn += bn;
+            	*p = bc->cc.nn.n;///a bubble
+				for (m = bl; m < bk; m++) {
+					if(!(bc->lock[((uint32_t)asn->a[m])])) continue;///if the node of bubble is not at this cluster
+                    kv_push(uint32_t, bc->cc.nn, ((uint32_t)asn->a[m]));
+                    bc->lock[((uint32_t)asn->a[m])] = 2;
+				}
+				if(bc->cc.nn.n <= (*p)) {///no node in this bubble
+					bc->cc.ng.n--; 
+					bl = bk;
+					continue;
+				}
+				*p <<= 32; *p |= (bc->cc.nn.n-((*p)>>32)); cocc++;
+				if(cocc > 0) {//cocc: # of bubbles in this chain
+					for (k = bc->cc.ng.n - cocc; k < bc->cc.ng.n; k++) {
+						kv_resize(double, sc_l, clus_n((*bc), k)); 
+						kv_resize(double, sc_r, clus_n((*bc), k)); 
+						kv_resize(double, sc_m, clus_n((*bc), k)); 
+						kv_resize(uint32_t, tmp, clus_n((*bc), k)); 
+						// prt_bub(clus_a((*bc), k), clus_n((*bc), k), "-0-"); 
+						reorder_bub(bc->mg->e, clus_a((*bc), k), clus_n((*bc), k), bc->lock, 3, 2, 4, 5, 
+						sc_l.a, sc_r.a, sc_m.a, tmp.a);
+						// prt_bub(clus_a((*bc), k), clus_n((*bc), k), "-1-"); 
+					}
+					for (k = iin; k < bc->cc.nn.n; k++) bc->lock[bc->cc.nn.a[k]] = 1;//reset
+					kv_pushp(uint64_t, bc->cc.ng, &p); *p = (uint64_t)-1; ///cluster
+					kv_push(uint32_t, bc->cc.nn, ((uint32_t)-1)); ///split, node id
+				}
+
+				bl = bk;
+			}
+		}
+	}
+	///need enable it later
+	kv_resize(uint32_t, tmp, bc->cc.nn.n);
+	kv_resize(uint64_t, bc->cc.ng, bc->cc.ng.n+bc->bub->ug->g->n_seq);
+	layout_mc_clus_t(bc->mg->e, bc->cc.nn.a, bc->cc.nn.n, &(bc->sg), tmp.a, bc->cc.ng.a+bc->cc.ng.n, bc->bub->ug, 0.199999, 0.800001, 4);
+	
+	for (k = 0; k < a_n; k++) bc->lock[a[k]] = 0;
+	kv_destroy(sc_l); kv_destroy(sc_r); kv_destroy(sc_m); kv_destroy(tmp);
+	// fprintf(stderr, "[M::%s] a_n::%u, bc->cc.nn.n::%u, bc->cc.ng.n::%u, bbn::%u, bub_occ::%u, bc->bub->b_ug->u.n::%u\n", __func__, 
+	// a_n, (uint32_t)bc->cc.nn.n, (uint32_t)bc->cc.ng.n, bbn, bub_occ, (uint32_t)bc->bub->b_ug->u.n);
+}
+
+
+void clean_clus_flip_aux(clus_flip_aux *z)
+{
+	z->w = -1; z->occ = z->off = (uint32_t)-1; 
+	memset(z->vis.a, 0, sizeof(*(z->vis.a))*z->vis.n);
+}
+
+#define is_set_bits_p(v, i) (((v).a[((i)>>3)]>>(i&7))&1)
+#define set_bits_p(v, i) (((v).a[((i)>>3)])|=(((uint8_t)1)<<(i&7)));
+
+t_w_t clus_weight(mc_svaux_t *b_aux, mc_match_t *ma, bits_p *vis, uint32_t uid)
+{
+	mc_edge_t *o = NULL;
+	uint32_t n, i, t;
+	t_w_t w = ((t_w_t)(b_aux->s[uid])) * (b_aux->z[uid].z[0] - b_aux->z[uid].z[1]) * 2;
+	t_w_t w_off = 0;
+	o = pt_a(*ma, uid);
+	n = pt_n(*ma, uid);
+	for (i = 0; i < n; ++i) {
+		t = ma_y(o[i]);
+		if(!(is_set_bits_p((*vis), t))) continue;
+		// if(vis[t] == 0) continue;
+        if(t == uid) continue;
+		w_off += (b_aux->s[uid]*b_aux->s[t]*o[i].w);
+	}
+	return w - (w_off*4);//2 for self; 4 for both directions
+}
+
+void cal_clus_sc0(mc_match_t *ma, mc_svaux_t *b_aux, mc_clus_t* bc, uint8_t *lock, uint8_t lock_max,
+uint32_t *a, uint32_t a_n, uint32_t id, clus_flip_aux *r, uint32_t tid)
+{
+	uint32_t i, max_occ = (uint32_t)-1;//, len, mm0 = (uint32_t)-1, mm1 = 0; 
+	bits_p *vis = &(r->vis); t_w_t w = 0, max_w = -1;
+
+	memset(vis->a, 0, sizeof(*(vis->a))*vis->n);
+	// if(bc->dbg) {
+	// 	if(a[id] == 487 || a[id] == 47) {
+	// 		fprintf(stderr, "[M::%s::] id::%u, a[id]::%u, s::%d\n", __func__, id, a[id], b_aux->s[a[id]]);
+	// 	}
+	// }
+	for (i = id; i < a_n && a[i] != (uint32_t)-1; i++) {
+		if(lock[a[i]] >= lock_max) continue;
+		if(is_set_bits_p((*vis), a[i])) continue;
+		w += clus_weight(b_aux, ma, vis, a[i]);
+		// if(bc->dbg) {
+		// 	if(a[id] == 487 || a[id] == 47) {
+		// 		fprintf(stderr, "[M::%s::id->%u] a[%u]::%u, s::%d, lock::%u, lock_max::%u, is_set::%u, w::%f\n", 
+		// 		__func__, id, i, a[i], b_aux->s[a[i]], lock[a[i]], lock_max, is_set_bits_p((*vis), a[i]), w);
+		// 	}
+		// }
+		set_bits_p((*vis), a[i]); 
+		// mm1 = a[i]; if(a[i] < mm0) mm0 = a[i];
+		///update max_w
+        if(max_w < w) {
+            max_w = w; max_occ = i + 1 - id;
+        }
+	}
+	// if(mm0 != (uint32_t)-1 && mm1 != (uint32_t)-1) {
+	// 	len = MIN(((mm1>>3)+1), vis->n) - (mm0>>3);
+	// 	memset(vis->a+(mm0>>3), 0, sizeof(*(vis->a))*len);
+	// }
+	for (i = id; i < a_n && a[i] != (uint32_t)-1; i++) vis->a[a[i]>>3] = 0;///reset
+	if(max_w <= 0.000001 || max_occ == (uint32_t)-1) return;
+	if((max_w > r->w) || (max_w == r->w && id < r->off)) {
+        r->w = max_w; r->off = id; r->occ = max_occ;
+    }
+	// if(bc->dbg) {
+	// 	if(a[id] == 487 || a[id] == 47) {
+	// 		fprintf(stderr, "[M::%s::] id::%u, a[id]::%u, w::%f, off::%u, occ::%u\n", __func__, id, a[id], r->w, r->off, r->occ);
+	// 	}
+	// }
+}
+
+static void worker_cal_clus_sc(void *data, long i, int tid) // callback for kt_for()
+{
+	mc_clus_t *bc = (mc_clus_t *)data;
+	uint32_t *a = bc->cc.nn.a, a_n = bc->cc.nn.n;
+	if(a[i] == (uint32_t)-1) return;
+	cal_clus_sc0(bc->mg->e, bc->baux, bc, bc->lock, bc->lock_max, a, a_n, i, &(bc->aux[tid]), tid);
+}
+
+
+uint32_t gen_best_clus(mc_clus_t *bc, uint32_t *off, uint32_t *occ, double *rw)
+{
+	uint32_t i; (*off) = (*occ) = (uint32_t)-1; (*rw) = -1;
+	for (i = 0; i < bc->n_thread; i++) clean_clus_flip_aux(&(bc->aux[i]));
+	
+	kt_for(bc->n_thread, worker_cal_clus_sc, bc, bc->cc.nn.n);
+	
+	for (i = 0; i < bc->n_thread; i++) {
+		if(bc->aux[i].off == (uint32_t)-1) continue;
+		if(bc->aux[i].w < 0) continue;
+
+		if((bc->aux[i].w > (*rw)) || (bc->aux[i].w == (*rw) && bc->aux[i].off < (*off))) {
+			(*off) = bc->aux[i].off; (*occ) = bc->aux[i].occ; (*rw) = bc->aux[i].w;
+		}
+	}
+	if((*off) != (uint32_t)-1) return 1;
+	return 0;
+}
+
+double flip_chain(const mc_match_t *ma, mc_svaux_t *b, uint32_t *a, uint32_t a_n, uint32_t off, uint32_t occ, 
+bits_p *vis, uint8_t *lock, uint8_t lock_max)
+{
+	uint32_t k, kn = off + occ;
+	for (k = off; k < kn; k++) {
+		vis->a[a[k]>>3] = 0;
+		// if(occ == 4 && a[off] == 11279) dbg = 1;
+	}
+	for (k = off; k < kn; k++) {
+		if(lock[a[k]] >= lock_max) continue;
+		if(is_set_bits_p((*vis), a[k])) continue;
+		set_bits_p((*vis), a[k]); lock[a[k]]++;
+		// if(dbg) fprintf(stderr, "[M::%s::] a[%u]::%u, s::%d\n", __func__, k, a[k], b->s[a[k]]);
+		mc_set_spin(ma, b, a[k], -b->s[a[k]]);
+	}
+	return mc_score(ma, b);
+}
+
+
+void test_flip_sc(const mc_match_t *ma, mc_svaux_t *b, uint32_t *a, uint32_t a_n, bits_p *vis)
+{
+	mc_edge_t *o = NULL; t_w_t w = 0, w_off = 0; 
+	t_w_t sc_new = mc_score(ma, b), sc;
+    uint32_t n, i, t, k, uid, z;
+	for (k = 0; k < a_n; k++) mc_set_spin(ma, b, a[k], -b->s[a[k]]);
+	for (k = 0; k < a_n; k++) {
+		uid = a[k];
+		fprintf(stderr, "+[M::%s::] uid::%u, z[0]::%f, z[1]::%f\n", __func__, uid, b->z[uid].z[0], b->z[uid].z[1]);
+		w += ((t_w_t)(b->s[uid])) * (b->z[uid].z[0] - b->z[uid].z[1]) * 2;
+		o = pt_a(*ma, uid);
+		n = pt_n(*ma, uid);
+		for (i = 0; i < n; ++i) {
+			t = ma_y(o[i]);
+			for (z = 0; z < k; z++) {
+				if(a[z] == t) break;
+			}
+			if(z >= k) continue;
+			// if(!(is_set_bits_p((*vis), t))) continue;
+			// if(vis[t] == 0) continue;
+			if(t == uid) continue;
+			fprintf(stderr, "+[M::%s::] uid::%u, t::%u, w::%f\n", __func__, uid, t, o[i].w);
+			w_off += (b->s[uid]*b->s[t]*o[i].w);
+		}
+	}
+	w -= (w_off*4);
+	sc = mc_score(ma, b);
+	fprintf(stderr, "+[M::%s::] sc::%f, sc_new::%f, w::%f\n", __func__, sc, sc_new, w);
+
+	w = w_off = 0; memset(vis->a, 0, sizeof(*(vis->a))*vis->n);
+	for (k = 0; k < a_n; k++) {
+		uid = a[k];
+		fprintf(stderr, "-[M::%s::] uid::%u, z[0]::%f, z[1]::%f\n", __func__, uid, b->z[uid].z[0], b->z[uid].z[1]);
+		w += ((t_w_t)(b->s[uid])) * (b->z[uid].z[0] - b->z[uid].z[1]) * 2;
+		o = pt_a(*ma, uid);
+		n = pt_n(*ma, uid);
+		for (i = 0; i < n; ++i) {
+			t = ma_y(o[i]);
+			// for (z = 0; z < k; z++) {
+			// 	if(a[z] == t) break;
+			// }
+			// if(z >= k) continue;
+			if(!(is_set_bits_p((*vis), t))) continue;
+			// if(vis[t] == 0) continue;
+			if(t == uid) continue;
+			fprintf(stderr, "-[M::%s::] uid::%u, t::%u, w::%f\n", __func__, uid, t, o[i].w);
+			w_off += (b->s[uid]*b->s[t]*o[i].w);
+		}
+		set_bits_p((*vis), uid);
+	}
+	w -= (w_off*4);
+	sc = mc_score(ma, b);
+	fprintf(stderr, "-[M::%s::] sc::%f, sc_new::%f, w::%f\n", __func__, sc, sc_new, w);
+}
+
+t_w_t mc_solve_clus(mc_clus_t *bc)
+{
+	uint32_t off, occ/**, r = 0**/; double rw, sc, sc_opt = mc_score(bc->mg->e, bc->baux);
+	memset(bc->lock, 0, bc->n*sizeof(*(bc->lock)));
+	while (gen_best_clus(bc, &off, &occ, &rw)) {
+		sc = flip_chain(bc->mg->e, bc->baux, bc->cc.nn.a, bc->cc.nn.n, off, occ, &(bc->aux[0].vis), bc->lock, bc->lock_max);
+		// if(r%10000) {
+		// 	fprintf(stderr, "[M::%s::] rw::%f, sc_opt::%f, sc::%f, off::%u, occ::%u, r::%u\n", 
+		// 	__func__, rw, sc_opt, sc, off, occ, r);
+		// }
+		if(sc < sc_opt) {
+			fprintf(stderr, "\nwrong::[M::%s::] rw::%f, sc_opt::%f, sc::%f, off::%u, occ::%u\n", 
+			__func__, rw, sc_opt, sc, off, occ);
+			// if(occ == 2) {
+			// uint32_t k;
+			// 	for (k = off; k < off + occ; k++) {
+			// 		fprintf(stderr, "[M::%s::] a[%u]::%u, s::%d\n", __func__, k, bc->cc.nn.a[k], bc->baux->s[bc->cc.nn.a[k]]);
+			// 	}
+			// 	test_flip_sc(bc->mg->e, bc->baux, bc->cc.nn.a+off, occ, &(bc->aux[0].vis));
+			// }
+		}
+		sc_opt = sc; //r++;
+	}
+	return sc_opt;
+}
+
+t_w_t mc_clus_cc(mc_clus_t *bc)
+{
+	// fprintf(stderr, "+[M::%s::]\n", __func__);
+	// double index_time = yak_realtime();
+    // uint32_t r = 1;
+    t_w_t sc_opt, sc;
+	// fprintf(stderr, "-[M::%s::]\n", __func__);
+	mc_reset_z(bc->mg->e, bc->baux);
+	// fprintf(stderr, "*[M::%s::]\n", __func__);
+	sc_opt = mc_score(bc->mg->e, bc->baux); 
+	// fprintf(stderr, "[M::%s::] sc_opt: %f\n", __func__, sc_opt);
+	while (1) {
+        sc = mc_solve_clus(bc);
+        // fprintf(stderr, "[M::%s::# round: %u] sc_opt: %f, sc: %f\n", __func__, r, sc_opt, sc);
+        if(sc <= (sc_opt+0.0000001)) break;
+        sc_opt = sc; //r++;
+    }
+    // fprintf(stderr, "[M::%s::%.3f] ==> round %u\n", __func__, yak_realtime()-index_time, r);
+	return sc;
+}
+
+uint32_t mc_solve_cc_adv(const mc_opt_t *opt, const mc_g_t *mg, mc_svaux_t *b, uint32_t cc_off, uint32_t cc_size, mc_clus_t *bc)
+{
+	uint32_t j, k, n_iter = 0, flush = opt->max_iter * 50, n_skip, n_skip_flush = opt->n_perturb/16;
+	t_w_t sc_opt = -(1<<30), sc;///problem-w
+	b->cc_off = cc_off, b->cc_size = cc_size;
+	if (b->cc_size < 2) return 0;
+	sc_opt = mc_init_spin(mg->e, b);
+	// print_sc(opt, mg, b, sc_opt, n_iter);
+	if (b->cc_size == 2) return 0;
+	for (j = 0; j < b->cc_size; ++j) {///backup s and z in s_opt and z_opt
+		b->s_opt[b->cc_node[j]] = b->s[b->cc_node[j]]; ///hap status of each unitig
+		b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]]; ///z[0]: positive weight; z[1]: positive weight
+	}
+	// renew_mc_clus_t(bc, b->cc_node, b->cc_size);
+	renew_mc_clus_t_adv(bc, b->cc_node, b->cc_size);
+	// fprintf(stderr, "\ncc_size: %u, cc_off: %u\n", b->cc_size, b->cc_off);
+	// print_sc(opt, mg->e, b, sc_opt, n_iter);
+	sc = mc_optimize_local(opt, mg->e, b, &n_iter);
+	if (sc > sc_opt) {
+		for (j = 0; j < b->cc_size; ++j) {
+			b->s_opt[b->cc_node[j]] = b->s[b->cc_node[j]];
+			b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]];
+		}
+		sc_opt = sc;
+	} else {
+		for (j = 0; j < b->cc_size; ++j) {
+			b->s[b->cc_node[j]] = b->s_opt[b->cc_node[j]];
+			b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
+		}
+	}
+    // print_mc_node(mg->e, b, 36880);
+	// print_sc(opt, mg, b, sc_opt, n_iter);
+	// mc_reset_z_debug(mg->e, b);
+	// print_sc(opt, mg->e, b, sc_opt, n_iter);
+	// fprintf(stderr, "\ncc_size: %u, cc_off: %u\n", b->cc_size, b->cc_off);
+	
+	if(bc) {
+		sc = mc_clus_cc(bc);
+		if (sc > sc_opt) {
+			for (j = 0; j < b->cc_size; ++j) {
+				b->s_opt[b->cc_node[j]] = b->s[b->cc_node[j]];
+				b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]];
+			}
+			sc_opt = sc;
+		} else {
+			for (j = 0; j < b->cc_size; ++j) {
+				b->s[b->cc_node[j]] = b->s_opt[b->cc_node[j]];
+				b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
+			}
+		}
+	}
+	
+	for (k = n_skip = 0; k < (uint32_t)opt->n_perturb; ++k) {
+		if (k&1) mc_perturb(opt, mg->e, b);
+		else mc_perturb_node(opt, mg->e, b, 3);
+		sc = mc_optimize_local(opt, mg->e, b, &n_iter);
+		// if((k%256) == 0) fprintf(stderr, "(%u) sc_opt::%f, sc::%f, flush::%u, n_iter::%u\n", k, sc_opt, sc, flush, n_iter);
+		if (sc > sc_opt) {
+			for (j = 0; j < b->cc_size; ++j) {
+				b->s_opt[b->cc_node[j]] = b->s[b->cc_node[j]];
+				b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]];
+			}
+			sc_opt = sc; n_skip = 0;
+			// print_sc(opt, mg, b, sc_opt, n_iter);
+		} else {
+			for (j = 0; j < b->cc_size; ++j) {
+				b->s[b->cc_node[j]] = b->s_opt[b->cc_node[j]];
+				b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
+			}
+			n_skip++;
+		}
+		if(n_skip >= n_skip_flush && bc) {
+			sc = mc_clus_cc(bc);
+			if (sc > sc_opt) {
+				for (j = 0; j < b->cc_size; ++j) {
+					b->s_opt[b->cc_node[j]] = b->s[b->cc_node[j]];
+					b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]];
+				}
+				sc_opt = sc;
+			} else {
+				for (j = 0; j < b->cc_size; ++j) {
+					b->s[b->cc_node[j]] = b->s_opt[b->cc_node[j]];
+					b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
+				}
+			}
+			n_skip = 0;
+		}
+
+		if((n_iter%flush) == 0) {
+			mc_reset_z(mg->e, b);
+			sc = mc_score(mg->e, b);
+
+			for (j = 0; j < b->cc_size; ++j) {
+				b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]];
+			}
+			sc_opt = sc;
+		}
+	}
+	if(bc) {
+		sc = mc_clus_cc(bc);
+		if (sc > sc_opt) {
+			for (j = 0; j < b->cc_size; ++j) {
+				b->s_opt[b->cc_node[j]] = b->s[b->cc_node[j]];
+				b->z_opt[b->cc_node[j]] = b->z[b->cc_node[j]];
+			}
+			sc_opt = sc;
+		} else {
+			for (j = 0; j < b->cc_size; ++j) {
+				b->s[b->cc_node[j]] = b->s_opt[b->cc_node[j]];
+				b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
+			}
+		}
+	}
+
+	// if(bc) {
+	// 	bc->dbg = 1;
+	// 	mc_clus_cc(bc);
+	// 	bc->dbg = 0;
+	// }
+
+	for (j = 0; j < b->cc_size; ++j)
+	{
+		b->s[b->cc_node[j]] = b->s_opt[b->cc_node[j]];
+		b->z[b->cc_node[j]] = b->z_opt[b->cc_node[j]];
+	}
+	// exit(1);
 	return n_iter;
 }
 
@@ -2637,6 +3300,7 @@ void mb_solve_core(mc_opt_t *opt, mc_g_t *mg, kv_u_trans_t *ref, uint32_t is_sys
 	fprintf(stderr, "[M::%s::%.3f] ==> Partition\n", __func__, yak_realtime()-index_time);
 }
 
+
 void mc_solve_core(const mc_opt_t *opt, mc_g_t *mg, bubble_type* bub)
 {
 	double index_time = yak_realtime();
@@ -2665,11 +3329,166 @@ void mc_solve_core(const mc_opt_t *opt, mc_g_t *mg, bubble_type* bub)
 	if(VERBOSE_CUT)
 	{
 		fprintf(stderr, "##############end-[---M::%s::score->%f] ==> Partition\n", __func__, mc_score_all(mg->e, b));
+		mc_status_all(mg->e, mg->s.a);
 	}
+	
+
 	if(bp) mc_solve_bp(bp);	
 	///mc_write_info(g, b);
 	mc_svaux_destroy(b);
 	if(bp) destroy_mc_bp_t(&bp);
+	fprintf(stderr, "[M::%s::%.3f] ==> Partition\n", __func__, yak_realtime()-index_time);
+}
+
+mc_clus_t *init_mc_clus_t(const mc_opt_t *opt, mc_g_t *mg, bubble_type* bub, uint32_t n_thread, mc_svaux_t *b, uint32_t flp_max)
+{
+	if((!bub)) return NULL;
+	mc_clus_t *p; CALLOC(p, 1); 
+	p->bub = bub; p->opt = opt; p->mg = mg; p->n = bub->ug->g->n_seq;
+	CALLOC(p->lock, p->n);
+	if(n_thread > 64) n_thread = 64; p->n_thread = n_thread;
+	CALLOC(p->aux, p->n_thread);
+	uint32_t k, ss = (p->n>>3)+(!!(p->n&7));
+	for (k = 0; k < p->n_thread; k++) {
+		kv_resize(uint8_t, p->aux[k].vis, ss); p->aux[k].vis.n = ss;
+	}
+	p->baux = b; p->lock_max = ((flp_max<=255)?flp_max:255); if(p->lock_max < 1) p->lock_max = 1;
+	return p;
+}
+
+void des_mc_clus_t(mc_clus_t *p)
+{
+	if((!p)) return;
+	uint32_t k; free(p->lock); osg_destroy(p->sg.g);
+	if(p->asn) {
+		free(p->asn->a); free(p->asn);
+	}
+	for (k = 0; k < p->n_thread; k++) free(p->aux[k].vis.a);
+	free(p->aux); free(p->cc.ng.a); free(p->cc.nn.a); 
+	free(p);
+}
+
+asg64_v* gen_ref_bub(mc_clus_t *bc, kv_u_trans_t *ref)
+{
+	if(!ref) return NULL;
+	asg64_v *aux; CALLOC(aux, 1); aux->n = aux->m = bc->n; double w, mmw;
+	MALLOC(aux->a, bc->n); memset(aux->a, -1, sizeof((*(aux->a)))*bc->n);
+	uint32_t k, l, i, *ba, bn, m, on, bid; ma_utg_t *u = NULL; uint64_t p, mm, st, j;
+	u_trans_t *o = NULL; asg64_v buf; kv_init(buf); 
+
+	for (i = bid = 0; i < bc->bub->b_ug->u.n; i++) {///set nodes within bubbles
+        u = &(bc->bub->b_ug->u.a[i]);
+        for (k = 0; k < u->n; k++, bid++) {
+            get_bubbles(bc->bub, u->a[k]>>33, NULL, NULL, &ba, &bn, NULL);
+            for (m = 0; m < bn; m++) aux->a[ba[m]>>1] = bid;
+        }
+    }
+	// bin = bid;
+
+	for (i = 0; i < bc->bub->ug->g->n_seq; i++) {
+		if(aux->a[i] != ((uint64_t)-1)) continue;
+		o = u_trans_a(*ref, i); on = u_trans_n(*ref, i);
+		if(!on) continue;
+		buf.n = 0; kv_resize(uint64_t, buf, on);
+		for (k = 0; k < on; k++) {
+			p = aux->a[o[k].tn]; p<<= 32; p += k;
+			kv_push(uint64_t, buf, p);
+		}
+
+		radix_sort_mc64(buf.a, buf.a + buf.n); 
+		mm = (uint32_t)-1; mmw = -1;
+		for (l = 0, k = 1; k <= buf.n; k++) {
+			if((k == buf.n) || ((buf.a[l]>>32) == ((uint32_t)-1)) || ((buf.a[l]>>32) != (buf.a[k]>>32))) {
+				for (m = l, w = 0; m < k; m++) w += fabs(o[((uint32_t)buf.a[m])].nw);
+				if(mmw < w) {
+					mmw = w; mm = buf.a[l]>>32;
+				}
+				l = k;
+			}
+		}
+		if(mm != ((uint32_t)-1)) aux->a[i] = mm;
+	}
+
+
+	///final cluster
+	for (i = 0; i < bc->bub->ug->g->n_seq; i++) {
+		if(aux->a[i] != ((uint64_t)-1)) continue;
+		buf.n = 0; kv_push(uint64_t, buf, i);
+        while (buf.n > 0) {
+            k = buf.a[--buf.n];
+			if(aux->a[k] != ((uint64_t)-1)) continue;
+            aux->a[k] = bid;///group id
+            o = u_trans_a(*ref, k); on = u_trans_n(*ref, k);
+            for (st = 0, j = 1; j <= on; ++j) {
+                if(j == on || o[j].tn != o[st].tn) {
+					if(aux->a[o[st].tn] == ((uint64_t)-1)) {
+						kv_push(uint64_t, buf, o[st].tn);
+					}
+                    st = j;
+                }
+            }
+        }
+		bid++;
+	}
+
+	assert(aux->n == bc->bub->ug->g->n_seq);
+
+	for (i = 0; i < bc->bub->b_ug->u.n; i++) {///no need nodes in bubbles
+        u = &(bc->bub->b_ug->u.a[i]);
+        for (k = 0; k < u->n; k++) {
+            get_bubbles(bc->bub, u->a[k]>>33, NULL, NULL, &ba, &bn, NULL);
+            for (m = 0; m < bn; m++) aux->a[ba[m]>>1] = (uint64_t)-1;
+        }
+    }
+	for (i = aux->n = 0; i < bc->bub->ug->g->n_seq; i++) {
+		if(aux->a[i] == ((uint64_t)-1)) continue;
+		aux->a[i] <<= 32; aux->a[i] |= i;//bub_id|node_id
+		aux->a[aux->n++] = aux->a[i];
+	}
+	radix_sort_mc64(aux->a, aux->a + aux->n);
+	kv_destroy(buf);
+	return aux;
+} 
+
+void mc_solve_core_adv(const mc_opt_t *opt, mc_g_t *mg, bubble_type* bub, kv_u_trans_t *ref)
+{
+	double index_time = yak_realtime();
+	uint32_t st, i;
+	mc_svaux_t *b; mc_clus_t *bc; 
+	// mc_bp_t *bp = NULL;
+	mc_g_cc(mg->e);
+	b = mc_svaux_init(mg, opt->seed);
+	bc = init_mc_clus_t(opt, mg, bub, asm_opt.thread_num, b, 16); 
+	if(ref && bc) bc->asn = gen_ref_bub(bc, ref);
+	// bc = gen_mc_clus_t(mg->e, b, bub, ref, asm_opt.thread_num);
+	// if(bub) bp = mc_bp_t_init(mg->e, b, bub, asm_opt.thread_num);
+	/*******************************for debug************************************/
+	// if(bp) mc_init_spin_all(opt, mg, NULL, b);
+	// if(bp) mc_solve_bp(bp);
+	/*******************************for debug************************************/
+	if(VERBOSE_CUT)
+	{
+		fprintf(stderr, "\n\n\n\n\n*************beg-[M::%s::score->%f] ==> Partition\n", __func__, mc_score_all_advance(mg->e, mg->s.a));
+	}
+	
+	for (st = 0, i = 1; i <= mg->e->n_seq; ++i) {
+		if (i == mg->e->n_seq || mg->e->cc[st]>>32 != mg->e->cc[i]>>32) {
+			mc_solve_cc_adv(opt, mg, b, st, i - st, bc);
+			st = i;
+		}
+	}
+
+	if(VERBOSE_CUT)
+	{
+		fprintf(stderr, "##############end-[---M::%s::score->%f] ==> Partition\n", __func__, mc_score_all(mg->e, b));
+		mc_status_all(mg->e, mg->s.a);
+	}
+	
+
+	// if(bp) mc_solve_bp(bp);	
+	///mc_write_info(g, b);
+	mc_svaux_destroy(b); des_mc_clus_t(bc); 
+	// if(bp) destroy_mc_bp_t(&bp);
 	fprintf(stderr, "[M::%s::%.3f] ==> Partition\n", __func__, yak_realtime()-index_time);
 }
 
@@ -2886,19 +3705,27 @@ void print_hap_s(int8_t *s, uint32_t sn)
 	}
 }
 
-void mc_solve(hap_overlaps_list* ovlp, trans_chain* t_ch, kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g, double f_rate, uint8_t* trio_flag, uint32_t renew_s, int8_t *s, uint32_t is_sys, bubble_type* bub, kv_u_trans_t *ref, int clean_ov)
+void dump_debug_phasing(const char* fn, kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g, double f_rate, 
+uint32_t renew_s, int8_t *s, uint32_t is_sys, bubble_type* bub, kv_u_trans_t *ref);
+void mc_solve(hap_overlaps_list* ovlp, trans_chain* t_ch, kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g, double f_rate, uint8_t* trio_flag, uint32_t renew_s, int8_t *s, uint32_t is_sys, bubble_type* bub, kv_u_trans_t *ref, int clean_ov, int is_dump)
 {
+	if(is_dump) {
+		dump_debug_phasing(MC_NAME, ta, ug, read_g, f_rate, renew_s, s, is_sys, bub, ref);
+		// bub = NULL;
+	}
+	
 	mc_opt_t opt;
 	mc_opt_init(&opt, asm_opt.n_perturb, asm_opt.f_perturb, asm_opt.seed);
 	mc_g_t *mg = init_mc_g_t(ug, read_g, s, renew_s);
 	update_mc_edges(mg, ovlp, ta, t_ch, f_rate, is_sys);
 
-	// fprintf(stderr, "[M::%s:: # edges: %u]\n", __func__, (uint32_t)mg->e->ma.n);
+	fprintf(stderr, "[M::%s:: # edges: %u]\n", __func__, (uint32_t)mg->e->ma.n);
 	
 	mb_solve_core(&opt, mg, ref, is_sys);
 	///debug_mc_g_t(mg);
 	// if(renew_s == 0) write_mc_g_t(&opt, mg, MC_NAME);
-	mc_solve_core(&opt, mg, bub);
+	// mc_solve_core(&opt, mg, bub);
+	mc_solve_core_adv(&opt, mg, bub, ref);
 
 	if((asm_opt.flag & HA_F_PARTITION) && t_ch)
 	{
@@ -3772,4 +4599,274 @@ void mc_solve_general(kv_u_trans_t *ta, uint32_t un, kv_gg_status *s, uint16_t h
 	
 	destory_mc_gg_t(&mg);
 	if(write_dump) write_mc_gg_dump(ta, un, s, hapN, MC_NAME);
+}
+
+void dump_kv_u_trans_t(kv_u_trans_t *z, FILE *fp)
+{
+	fwrite(&(z->n), sizeof(z->n), 1, fp);
+    fwrite(z->a, sizeof((*(z->a))), z->n, fp);
+    fwrite(&z->idx.n, sizeof(z->idx.n), 1, fp);
+    fwrite(z->idx.a, sizeof((*(z->idx.a))), z->idx.n, fp);
+}
+
+void dump_asg_t(asg_t *g, FILE *fp)
+{
+	uint32_t tmp, Len;
+	tmp = g->n_arc;
+    fwrite(&tmp, sizeof(tmp), 1, fp);
+
+    tmp = g->is_srt;
+    fwrite(&tmp, sizeof(tmp), 1, fp);
+
+    tmp = g->n_seq;
+    fwrite(&tmp, sizeof(tmp), 1, fp);
+    
+    tmp = g->is_symm;
+    fwrite(&tmp, sizeof(tmp), 1, fp);
+
+    tmp = g->r_seq;
+    fwrite(&tmp, sizeof(tmp), 1, fp);
+
+
+    // Len = g->n_seq*2;
+    // fwrite(g->seq_vis, sizeof((*(g->seq_vis))), Len, fp);
+
+    Len = g->n_seq*2;
+    fwrite(g->idx, sizeof((*(g->idx))), Len, fp);
+    fwrite(g->arc, sizeof((*(g->arc))), g->n_arc, fp);
+    fwrite(g->seq, sizeof((*(g->seq))), g->n_seq, fp);
+}
+
+void dump_ma_ug_t(ma_ug_t *ug, FILE *fp)
+{
+	ma_utg_t *u = NULL; uint32_t t, i;
+    fwrite(&(ug->u.n), sizeof(ug->u.n), 1, fp);
+    for (i = 0; i < ug->u.n; i++) {
+        u = &(ug->u.a[i]);
+        t = u->len;
+        fwrite(&t, sizeof(t), 1, fp);
+        t = u->circ;
+        fwrite(&t, sizeof(t), 1, fp);
+        fwrite(&(u->start), sizeof(u->start), 1, fp);
+        fwrite(&(u->end), sizeof(u->end), 1, fp);
+        fwrite(&(u->n), sizeof(u->n), 1, fp);
+        fwrite(u->a, sizeof(uint64_t), u->n, fp);
+    }
+	dump_asg_t(ug->g, fp);
+}
+
+void dump_bubble_type(bubble_type* bub, FILE *fp)
+{
+	fwrite(&(bub->chain_weight.n), sizeof(bub->chain_weight.n), 1, fp);
+	fwrite(bub->chain_weight.a, sizeof((*(bub->chain_weight.a))), bub->chain_weight.n, fp);
+
+	fwrite(&(bub->list.n), sizeof(bub->list.n), 1, fp);
+	fwrite(bub->list.a, sizeof((*(bub->list.a))), bub->list.n, fp);
+
+	fwrite(&(bub->num.n), sizeof(bub->num.n), 1, fp);
+	fwrite(bub->num.a, sizeof((*(bub->num.a))), bub->num.n, fp);
+
+	fwrite(&(bub->pathLen.n), sizeof(bub->pathLen.n), 1, fp);
+	fwrite(bub->pathLen.a, sizeof((*(bub->pathLen.a))), bub->pathLen.n, fp);
+
+	dump_ma_ug_t(bub->b_ug, fp);
+	dump_asg_t(bub->b_g, fp);
+	dump_ma_ug_t(bub->ug, fp);
+}
+
+void dump_rid(All_reads *rdb, FILE *fp)
+{
+	fwrite(&(rdb->total_reads), sizeof(rdb->total_reads), 1, fp);
+	fwrite(&(rdb->name_index_size), sizeof(rdb->name_index_size), 1, fp);
+	fwrite(rdb->name_index, sizeof((*(rdb->name_index))), rdb->name_index_size, fp);
+
+	fwrite(&(rdb->total_name_length), sizeof(rdb->total_name_length), 1, fp);
+	fwrite(rdb->name, sizeof((*(rdb->name))), rdb->total_name_length, fp);
+}
+
+void load_rid(All_reads *rdb, FILE *fp)
+{
+	fread(&(rdb->total_reads), sizeof(rdb->total_reads), 1, fp);
+	fread(&(rdb->name_index_size), sizeof(rdb->name_index_size), 1, fp);
+	MALLOC(rdb->name_index, rdb->name_index_size);
+	fread(rdb->name_index, sizeof((*(rdb->name_index))), rdb->name_index_size, fp);
+
+	fread(&(rdb->total_name_length), sizeof(rdb->total_name_length), 1, fp);
+	MALLOC(rdb->name, rdb->total_name_length);
+	fread(rdb->name, sizeof((*(rdb->name))), rdb->total_name_length, fp);
+}
+
+void dump_debug_phasing(const char* fn, kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g, double f_rate, 
+uint32_t renew_s, int8_t *s, uint32_t is_sys, bubble_type* bub, kv_u_trans_t *ref)
+{
+	fprintf(stderr, "\n[M::%s]\n", __func__);
+    char *buf = (char*)calloc(strlen(fn) + 50, 1);
+    sprintf(buf, "%s.hic.dbg.dump.bin", fn);
+    FILE *fp = fopen(buf, "w");
+
+	dump_kv_u_trans_t(ta, fp);///ta
+	dump_ma_ug_t(ug, fp);///ug
+	dump_asg_t(read_g, fp);///read_g
+	fwrite(&f_rate, sizeof(f_rate), 1, fp);///f_rate
+	fwrite(&renew_s, sizeof(renew_s), 1, fp);///renew_s
+	fwrite(s, sizeof((*s)), ug->g->n_seq, fp);///s
+	fwrite(&is_sys, sizeof(is_sys), 1, fp);///is_sys
+	dump_bubble_type(bub, fp);///bub
+	dump_kv_u_trans_t(ref, fp);///ta
+	dump_rid(&R_INF, fp);
+
+	fclose(fp);
+    free(buf);
+}
+
+void load_kv_u_trans_t(kv_u_trans_t *z, FILE *fp)
+{
+	fread(&(z->n), sizeof(z->n), 1, fp); 
+	z->m = z->n; MALLOC(z->a, z->n);
+    fread(z->a, sizeof((*(z->a))), z->n, fp);
+
+    fread(&z->idx.n, sizeof(z->idx.n), 1, fp);
+	z->idx.m = z->idx.n; MALLOC(z->idx.a, z->idx.n);
+    fread(z->idx.a, sizeof((*(z->idx.a))), z->idx.n, fp);
+}
+
+void load_asg_t(asg_t *g, FILE *fp)
+{
+	uint32_t tmp, Len;
+    fread(&tmp, sizeof(tmp), 1, fp);
+	g->n_arc = g->m_arc = tmp;
+
+    fread(&tmp, sizeof(tmp), 1, fp);
+	g->is_srt = tmp;
+
+    fread(&tmp, sizeof(tmp), 1, fp);
+	g->n_seq = g->m_seq = tmp;
+    
+    fread(&tmp, sizeof(tmp), 1, fp);
+	g->is_symm = tmp;
+
+    fread(&tmp, sizeof(tmp), 1, fp);
+	g->r_seq = tmp;
+
+    // Len = g->n_seq*2;
+    // fwrite(g->seq_vis, sizeof((*(g->seq_vis))), Len, fp);
+
+    Len = g->n_seq*2;
+	CALLOC(g->idx, Len); fread(g->idx, sizeof((*(g->idx))), Len, fp);
+	CALLOC(g->arc, g->n_arc); fread(g->arc, sizeof((*(g->arc))), g->n_arc, fp);
+	CALLOC(g->seq, g->n_seq); fread(g->seq, sizeof((*(g->seq))), g->n_seq, fp);
+}
+
+void load_ma_ug_t(ma_ug_t *ug, FILE *fp)
+{
+	ma_utg_t *u = NULL; uint32_t t, i;
+    fread(&(ug->u.n), sizeof(ug->u.n), 1, fp);
+	ug->u.m = ug->u.n; CALLOC(ug->u.a, ug->u.n);
+    for (i = 0; i < ug->u.n; i++) {
+        u = &(ug->u.a[i]);
+		fread(&t, sizeof(t), 1, fp); u->len = t;
+        fread(&t, sizeof(t), 1, fp); u->circ = t;
+        fread(&(u->start), sizeof(u->start), 1, fp);
+        fread(&(u->end), sizeof(u->end), 1, fp);
+        fread(&(u->n), sizeof(u->n), 1, fp);
+		u->m = u->n; MALLOC(u->a, u->n);
+        fread(u->a, sizeof((*(u->a))), u->n, fp);
+    }
+	CALLOC(ug->g, 1);
+	load_asg_t(ug->g, fp);
+}
+
+void load_bubble_type(bubble_type* bub, FILE *fp)
+{
+	fread(&(bub->chain_weight.n), sizeof(bub->chain_weight.n), 1, fp);
+	bub->chain_weight.m = bub->chain_weight.n; CALLOC(bub->chain_weight.a, bub->chain_weight.n);
+	fread(bub->chain_weight.a, sizeof((*(bub->chain_weight.a))), bub->chain_weight.n, fp);
+
+	fread(&(bub->list.n), sizeof(bub->list.n), 1, fp);
+	bub->list.m = bub->list.n; CALLOC(bub->list.a, bub->list.n);
+	fread(bub->list.a, sizeof((*(bub->list.a))), bub->list.n, fp);
+
+	fread(&(bub->num.n), sizeof(bub->num.n), 1, fp);
+	bub->num.m = bub->num.n; CALLOC(bub->num.a, bub->num.n);
+	fread(bub->num.a, sizeof((*(bub->num.a))), bub->num.n, fp);
+
+	fread(&(bub->pathLen.n), sizeof(bub->pathLen.n), 1, fp);
+	bub->pathLen.m = bub->pathLen.n; CALLOC(bub->pathLen.a, bub->pathLen.n);
+	fread(bub->pathLen.a, sizeof((*(bub->pathLen.a))), bub->pathLen.n, fp);
+
+	CALLOC(bub->b_ug, 1); load_ma_ug_t(bub->b_ug, fp);
+	CALLOC(bub->b_g, 1); load_asg_t(bub->b_g, fp);
+	CALLOC(bub->ug, 1); load_ma_ug_t(bub->ug, fp);
+}
+
+void load_debug_phasing(const char* fn, kv_u_trans_t **ta, ma_ug_t **ug, asg_t **read_g, double *f_rate, 
+uint32_t *renew_s, int8_t **s, uint32_t *is_sys, bubble_type **bub, kv_u_trans_t **ref)
+{
+	fprintf(stderr, "\n[M::%s]\n", __func__);
+    char *buf = (char*)calloc(strlen(fn) + 50, 1);
+    sprintf(buf, "%s.hic.dbg.dump.bin", fn);
+    FILE *fp = fopen(buf, "r");
+
+	CALLOC((*ta), 1); load_kv_u_trans_t(*ta, fp);///ta
+	CALLOC((*ug), 1); load_ma_ug_t(*ug, fp);///ug
+	CALLOC((*read_g), 1); load_asg_t((*read_g), fp);///read_g
+
+	fread(f_rate, sizeof((*f_rate)), 1, fp);///f_rate
+	fread(renew_s, sizeof((*renew_s)), 1, fp);///renew_s
+	CALLOC((*s), (*ug)->g->n_seq); fread(*s, sizeof((*(*s))), (*ug)->g->n_seq, fp);///s
+	fread(is_sys, sizeof((*is_sys)), 1, fp);///is_sys
+
+	CALLOC((*bub), 1); load_bubble_type(*bub, fp);///bub
+	CALLOC((*ref), 1); load_kv_u_trans_t(*ref, fp);///ta
+
+	load_rid(&R_INF, fp);///read id
+
+	fclose(fp);
+    free(buf);
+}
+
+
+void prt_rcut_res(const char* fn, int8_t *s, ma_ug_t *ug, asg_t *sg)
+{
+	uint32_t i, k, flag = AMBIGU; 
+	char *buf = (char*)calloc(strlen(fn) + 50, 1);
+    sprintf(buf, "%s.rcut.res.log", fn);
+    FILE *fp = fopen(buf, "w");
+	uint8_t *rs = NULL; MALLOC(rs, sg->n_seq);
+	memset(rs, AMBIGU, sg->n_seq*sizeof((*rs)));
+
+    for (i = 0; i < ug->g->n_seq; i++) {
+        if(ug->g->seq[i].del) continue;
+        flag = AMBIGU;
+		if(s[i] == 0) continue;
+		flag = (s[i] > 0? FATHER:MOTHER);
+        for (k = 0; k < ug->u.a[i].n; k++) rs[ug->u.a[i].a[k]>>33] = flag;
+    }
+
+	for (i = 0; i < sg->n_seq; i++) {
+		if(rs[i] == AMBIGU) continue;
+		fprintf(fp, "%.*s\t%u\n", (int)Get_NAME_LENGTH(R_INF, i), Get_NAME(R_INF, i), rs[i]);
+	}
+
+	fclose(fp); free(rs);
+    free(buf);
+}
+
+void quick_debug_phasing(const char* fn)
+{
+	kv_u_trans_t *ta; ma_ug_t *ug; asg_t *read_g; double f_rate;
+	uint32_t renew_s; int8_t *s; uint32_t is_sys; bubble_type *bub; kv_u_trans_t *ref;
+	load_debug_phasing(fn, &ta, &ug, &read_g, &f_rate, &renew_s, &s, &is_sys, &bub, &ref);
+
+
+
+	mc_solve(NULL, NULL, ta, ug, read_g, f_rate, NULL, renew_s, s, is_sys, bub, ref, 0, 0);
+	// mc_solve_core_adv(const mc_opt_t *opt, mc_g_t *mg, bubble_type* bub, kv_u_trans_t *ref)
+
+	// for (k = 0; k < ug->g->n_seq; k++) {
+	// 	fprintf(stderr, "utg%.6dl(len::%u), s[k]::%d\n", (int32_t)(k)+1, ug->g->seq[k].len, s[k]);
+	// }
+	prt_rcut_res(fn, s, ug, read_g);
+	
+	exit(1);
 }

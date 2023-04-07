@@ -1,10 +1,13 @@
 #ifndef __OVERLAPS__
 #define __OVERLAPS__
+
+#define __STDC_LIMIT_MACROS
 #include <stdio.h>
 #include <stdint.h>
 #include "kvec.h"
 #include "kdq.h"
 #include "ksort.h"
+#include "CommandLines.h"
 
 ///#define MIN_OVERLAP_LEN 2000
 ///#define MIN_OVERLAP_LEN 500
@@ -31,7 +34,7 @@
 // #define PRIMARY_LABLE 1
 // #define ALTER_LABLE 2
 // #define HAP_LABLE 4
-
+#define ug_ext_len 75000
 
 #define Get_qn(RECORD) ((uint32_t)((RECORD).qns>>32))
 #define Get_qs(RECORD) ((uint32_t)((RECORD).qns))
@@ -52,15 +55,62 @@
 #define TRIM 10
 #define CUT 11
 #define CUT_DIF_HAP 12
+#define SEC_MODE ((uint32_t)(0x3fffffffU))
 
+///query is the read itself
+typedef struct {
+	uint32_t qn, qs, qe;
+	uint32_t tn, ts, te;
+	uint32_t sec:30, el:1, rev:1;
+} ul_ov_t;
 
+typedef struct {
+	ul_ov_t *a;
+	size_t n, m;
+} kv_ul_ov_t;
 
+typedef struct {
+	uint32_t tn, rn, el;
+	uint32_t qs, qe, ts, te;
+	uint8_t dir:5, pe:1, full:1, rev:1;
+} emask_t;
+
+typedef struct {
+	emask_t *a; 
+	size_t n, m;
+} kv_emask_t;
+
+typedef struct {
+	kv_emask_t *a; 
+	uint32_t n;
+} idx_emask_t;
+
+typedef struct {
+	///off: start idx in mg128_t * a[];
+	///cnt: how many eles in this chain
+	///a[off, off+cnt) saves the eles in this chain
+	int32_t off, cnt:31, inner_pre:1;
+	///ref_id|rev
+	uint32_t v;
+	///chain in ref: [rs, re)
+	///chain in query: [qs, qe)
+	int32_t rs, re, qs, qe;
+	///score: chain score
+	int32_t score, dist_pre;
+	uint32_t hash_pre;
+} mg_lchain_t;
+
+typedef struct {
+	mg_lchain_t *a;
+	size_t n, m;
+}vec_mg_lchain_t;
 
 ///query is the read itself
 typedef struct {
 	uint64_t qns;
 	uint32_t qe, tn, ts, te;
-	uint32_t ml:31, rev:1;
+	// uint32_t ml:31, rev:1;
+	uint32_t cc:30, ml:1, rev:1;
 	uint32_t bl:31, del:1;
 	uint8_t el;
 	uint8_t no_l_indel;
@@ -85,8 +135,6 @@ void ma_hit_sort_qns(ma_hit_t *a, long long n);
 
 int load_all_data_from_disk(ma_hit_t_alloc **sources, ma_hit_t_alloc **reverse_sources, 
 char* output_file_name);
-
-
 
 typedef struct {
 	uint32_t s:31, del:1, e;
@@ -131,14 +179,17 @@ typedef struct {
 
 #define u_trans_a(x, id) ((x).a + ((x).idx.a[(id)]>>32))
 #define u_trans_n(x, id) ((uint32_t)((x).idx.a[(id)]))
+#define OU_MASK (0x3fffU)
 
 typedef struct {
 	uint64_t ul;
 	uint32_t v;
 	uint32_t ol:31, del:1;
-	uint8_t strong;
+	uint16_t ou:14, strong:1, no_l_indel:1;
 	uint8_t el;
-	uint8_t no_l_indel;
+	// uint8_t strong;
+	// uint8_t el;
+	// uint8_t no_l_indel;
 } asg_arc_t;
 
 typedef struct {
@@ -177,6 +228,20 @@ typedef struct {
 	ma_utg_t* F_seq;
 } asg_t;
 
+typedef struct {
+	ma_hit_t_alloc* src;
+	int64_t min_ovlp, max_hang, max_hang_rate, need_srt, gap_fuzz;
+	asg_t *g;
+	uint32_t *idx;
+	kvec_t(uint32_t) pi;
+	asg_arc_t *a;
+	size_t n, m;
+} flex_asg_t;
+
+typedef struct {
+	uint32_t i[2];
+}flex_asg_e_retrive_t;
+
 asg_t *asg_init(void);
 void asg_destroy(asg_t *g);
 void asg_arc_sort(asg_t *g);
@@ -188,9 +253,9 @@ void print_gfa(asg_t *g);
 
 
 typedef struct { size_t n, m; uint64_t *a; } asg64_v;
-
-
+typedef struct { size_t n, m; uint32_t *a; } asg32_v;
 typedef struct { size_t n, m; ma_utg_t *a;} ma_utg_v;
+typedef struct { asg64_v idx; kv_ul_ov_t srt;} mask_ul_ov_t;
 
 typedef struct {
 	ma_utg_v u;
@@ -202,7 +267,89 @@ typedef struct {
 	uint32_t utg:31, ori:1, start, len;
 } utg_intv_t;
 
+typedef struct {
+	uint32_t x, s, e;
+} utg_ct_t;
 
+typedef struct {
+	uint32_t *idx;
+	kvec_t(uint64_t) interval;
+} ucov_t;
+
+typedef struct {
+	uint32_t u, off, pos;
+} utg_rid_dt;
+
+typedef struct {
+	uint32_t *idx;
+	kvec_t(utg_rid_dt) p;
+	asg_t *rg;
+} utg_rid_t;
+
+typedef struct {
+	kvec_t(uint64_t) idx;
+	kvec_t(utg_ct_t) rids;
+	kvec_t(uint8_t) is_c;
+} ul_contain;
+
+typedef struct {
+	ma_ug_t *ug;
+	asg_t *rg;
+	uint64_t *idx;
+} cvert_t;
+
+typedef struct {
+	size_t n, m;
+    uint8_t *a;
+	uint64_t *idx;
+} hmap_t;
+
+typedef struct {
+	ma_ug_t *hg;
+	size_t n, m; 
+	uint64_t *a;
+	hmap_t *mm;
+} hpc_t;
+
+typedef struct {
+	uint32_t s, e;
+	uint8_t k;
+} hpc_ss_t;
+
+typedef struct {
+	uint32_t s, e;
+} hpc_idx_t;
+
+typedef struct {
+	size_t n, m; 
+	hpc_ss_t *a;
+	hpc_idx_t *idx;
+	uint64_t idx_n;
+} hpc_re_t;
+
+#define hpc_len(x, id) ((x).hg->u.a[(id)].len>>1)
+#define hpc_str(x, id, rev) (((x).hg->u.a[(id)].s)+((rev)?((x).hg->u.a[(id)].len>>1):(0)))
+
+typedef struct {
+	uint32_t n;
+	uint8_t *a; 
+} bit_mask_t;
+
+#define set_bit_mask_t(x, i) ((x).a[(i)>>3]|=(((uint8_t)1)<<((i)&((uint32_t)7))))
+#define get_bit_mask_t(x, i) ((x).a[(i)>>3]&(((uint8_t)1)<<((i)&((uint32_t)7))))
+
+typedef struct {
+	ma_ug_t *ug;
+	hpc_t *hpc_g;
+	ucov_t *cc;
+	ucov_t *cr;
+	ul_contain *ct;
+	utg_rid_t *r_ug;
+	// cvert_t *nug;
+	// kv_ul_ov_t *ov;
+} ul_idx_t;
+
+#define MA_HT_DOUBLE     (-1024)
 #define MA_HT_INT        (-1)
 #define MA_HT_QCONT      (-2)
 #define MA_HT_TCONT      (-3)
@@ -483,7 +630,7 @@ long long max_hang_length, long long clean_round, long long gap_fuzz,
 float min_ovlp_drop_ratio, float max_ovlp_drop_ratio, char* output_file_name, 
 long long bubble_dist, int read_graph, int write);
 
-void debug_info_of_specfic_read(char* name, ma_hit_t_alloc* sources, ma_hit_t_alloc* reverse_sources, int id, char* command);
+void debug_info_of_specfic_read(const char* name, ma_hit_t_alloc* sources, ma_hit_t_alloc* reverse_sources, int id, const char* command);
 void collect_abnormal_edges(ma_hit_t_alloc* paf, ma_hit_t_alloc* rev_paf, long long readNum);
 void add_overlaps(ma_hit_t_alloc* source_paf, ma_hit_t_alloc* dest_paf, uint64_t* source_index, long long listLen);
 void remove_overlaps(ma_hit_t_alloc* source_paf, uint64_t* source_index, long long listLen);
@@ -768,6 +915,12 @@ uint32_t get_edge_from_source(ma_hit_t_alloc* sources, ma_sub_t *coverage_cut,
 R_to_U* ruIndex, int max_hang, int min_ovlp, uint32_t query, uint32_t target, asg_arc_t* t);
 int unitig_arc_del_short_diploid_by_length(asg_t *g, float drop_ratio);
 void asg_bub_backtrack_primary(asg_t *g, uint32_t v0, buf_t *b);
+void set_hom_global_coverage(hifiasm_opt_t *opt, asg_t *sg, ma_sub_t* coverage_cut, 
+ma_hit_t_alloc* sources, ma_hit_t_alloc* reverse_sources, R_to_U* ruIndex, int max_hang, int min_ovlp);
+void rescue_bubble_by_chain(asg_t *sg, ma_sub_t *coverage_cut, ma_hit_t_alloc* sources, ma_hit_t_alloc* reverse_sources, 
+long long tipsLen, float tip_drop_ratio, long long stops_threshold, R_to_U* ruIndex, 
+float chimeric_rate, float drop_ratio, int max_hang, int min_ovlp, uint32_t chainLenThres, long long gap_fuzz, 
+bub_label_t* b_mask_t, long long no_trio_recover);
 
 typedef struct{
     double weight;
@@ -913,7 +1066,7 @@ ma_ug_t* copy_untig_graph(ma_ug_t *src);
 ma_ug_t* output_trio_unitig_graph(asg_t *sg, ma_sub_t* coverage_cut, char* output_file_name, 
 uint8_t flag, ma_hit_t_alloc* sources, ma_hit_t_alloc* reverse_sources, 
 long long tipsLen, float tip_drop_ratio, long long stops_threshold, R_to_U* ruIndex, 
-float chimeric_rate, float drop_ratio, int max_hang, int min_ovlp, int is_bench, bub_label_t* b_mask_t);
+float chimeric_rate, float drop_ratio, int max_hang, int min_ovlp, int is_bench, bub_label_t* b_mask_t, char *f_prefix, uint8_t *kpt_buf, kvec_asg_arc_t_warp *r_edges);
 asg_t* copy_read_graph(asg_t *src);
 ma_ug_t *ma_ug_gen(asg_t *g);
 void ma_ug_destroy(ma_ug_t *ug);
@@ -959,8 +1112,24 @@ typedef struct{
     int min_ovlp;
     int is_bench;
 	long long gap_fuzz;
+	int64_t min_dp;
     bub_label_t* b_mask_t;
+	uint64_t* readLen;
 }ug_opt_t;
+
+typedef struct{
+	ma_hit_t_alloc **src;
+	ma_hit_t_alloc **r_src;
+	long long *n_read;
+	uint64_t **readLen;
+	asg_t **sg;
+	R_to_U *ruIndex;
+	ma_sub_t **cov;
+	bub_label_t *b_mask_t;
+	int64_t max_hang;
+	int64_t mini_ovlp;
+}ul_renew_t;
+
 
 void adjust_utg_by_trio(ma_ug_t **ug, asg_t* read_g, uint8_t flag, float drop_rate,
 ma_hit_t_alloc* sources, ma_hit_t_alloc* reverse_sources, ma_sub_t* coverage_cut, 
@@ -1006,9 +1175,63 @@ asg_t *i_read_sg, trans_chain* i_t_ch, uint32_t i_cBeg, uint32_t i_cEnd);
 void extract_sub_overlaps(uint32_t i_tScur, uint32_t i_tEcur, uint32_t i_tSpre, uint32_t i_tEpre,
 uint32_t tn, kv_u_trans_hit_t* ktb, uint32_t bn);
 void clean_u_trans_t_idx(kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g);
-
+void clean_u_trans_t_idx_adv(kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g);
+void clean_u_trans_t_idx_filter_adv(kv_u_trans_t *ta, ma_ug_t *ug, asg_t *read_g);
+uint32_t test_dbug(ma_ug_t* ug, FILE* fp);
+void write_dbug(ma_ug_t* ug, FILE* fp);
+int asg_arc_identify_simple_bubbles_multi(asg_t *g, bub_label_t* x, int check_cross);
+uint8_t get_tip_trio_infor(asg_t *sg, uint32_t begNode);
+int asg_topocut_aux(asg_t *g, uint32_t v, int max_ext);
+int asg_topocut_aux_pg(asg_t *g, uint32_t v, int max_ext, uint32_t *rv);
+int asg_arc_del_triangular_directly(asg_t *g, long long min_edge_length, 
+ma_hit_t_alloc* reverse_sources, R_to_U* ruIndex);
+int asg_arc_del_short_diploid_by_exact(asg_t *g, int max_ext, ma_hit_t_alloc* sources);
+uint32_t print_debug_gfa(asg_t *read_g, ma_ug_t *ug, ma_sub_t* coverage_cut, const char* output_file_name, 
+ma_hit_t_alloc* sources, R_to_U* ruIndex, int max_hang, int min_ovlp, int is_update_ou, int is_check_alter_lable, int is_seq);
+void debug_info_of_specfic_node(const char* name, asg_t *g, R_to_U* ruIndex, const char* command);
+ma_ug_t *gen_polished_ug(const ug_opt_t *uopt, asg_t *sg);
+void output_unitig_graph(asg_t *sg, ma_sub_t* coverage_cut, char* output_file_name, 
+ma_hit_t_alloc* sources, R_to_U* ruIndex, int max_hang, int min_ovlp);
+void flat_soma_v(asg_t *sg, ma_hit_t_alloc* sources, R_to_U* ruIndex);
+void hic_clean(asg_t* read_g);
+int64_t count_edges_v_w(asg_t *g, uint32_t v, uint32_t w);
+void renew_utg(ma_ug_t **ug, asg_t* read_g, kvec_asg_arc_t_warp* edge);
+void merge_unitig_content(ma_utg_t* collection, ma_ug_t* ug, asg_t* read_g, kvec_asg_arc_t_warp* edge);
+void reset_bub_label_t(bub_label_t* x, asg_t *g, uint64_t bub_dist, uint32_t check_cross);
+void set_reverse_overlap(ma_hit_t* dest, ma_hit_t* source);
+// void break_ug_contig(ma_ug_t **ug, asg_t *read_g, All_reads *RNF, ma_sub_t *coverage_cut,
+// ma_hit_t_alloc* sources, R_to_U* ruIndex, kvec_asg_arc_t_warp* edge, int max_hang, int min_ovlp, 
+// int* b_low_cov, int* b_high_cov, double m_rate);
+void ma_hit_contained_advance(ma_hit_t_alloc* sources, long long n_read, ma_sub_t *coverage_cut, 
+R_to_U* ruIndex, int max_hang, int min_ovlp);
+void hic_clean_adv(asg_t *sg, ug_opt_t *uopt);
+void update_ug_ou(ma_ug_t *ug, asg_t *sg);
+int asg_arc_del_trans_ul(asg_t *g, int fuzz);
 
 #define JUNK_COV 5
 #define DISCARD_RATE 0.8
+
+typedef struct {
+    uint32_t n, m, a;
+} mmhap_status_t;
+
+typedef struct {
+	kvec_t(mmhap_status_t) h;
+    kvec_t(uint32_t) a;
+} mmhap_t;
+
+typedef struct { // global data structure for kt_pipeline()
+    ma_ug_t *ug;
+    asg_t *rg;
+    uint64_t *idx;
+	asg64_v cov;
+	uint64_t hom_min, hom_max, hom_cov, het_cov;
+} ug_rid_cov_t;
+
+ug_rid_cov_t* gen_ug_rid_cov_t(ma_ug_t *ug, asg_t *rg, ma_hit_t_alloc *src);
+void destory_ug_rid_cov_t(ug_rid_cov_t *p);
+uint32_t append_cov_line_ug_rid_cov_t(uint64_t uid, uint64_t *qcc, u_trans_t *p, ug_rid_cov_t *idx, uint64_t hom_cut, double cut_rate);
+uint64_t infer_mmhap_copy(ma_ug_t *ug, asg_t *sg, ma_hit_t_alloc *src, uint8_t *ff, uint64_t uid, uint64_t het_cov, uint64_t n_hap);
+uint64_t trans_sec_cut0(kv_u_trans_t *ta, asg64_v *srt, uint32_t id, double sec_rate, uint64_t bd, ma_ug_t *ug);
 
 #endif

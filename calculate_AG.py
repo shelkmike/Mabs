@@ -87,7 +87,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.14" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.18" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
@@ -388,7 +388,12 @@ python3 calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads
 		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Proovframe/bin/proovframe-map --threads " + str(n_number_of_cpu_threads_to_use) + " --db " + s_path_to_the_output_folder + "/reference_busco_proteins.fasta.dmnd --out " + s_path_to_the_output_folder + "/diamond_results_for_Proovframe.tsv " + s_path_to_the_output_folder + "/assembly__without_whitespace_characters_in_titles.fasta")
 		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Proovframe/bin/proovframe-fix --out " + s_path_to_the_output_folder + "/assembly_corrected_by_Proovframe.fasta " + s_path_to_the_output_folder + "/assembly__without_whitespace_characters_in_titles.fasta " + s_path_to_the_output_folder + "/diamond_results_for_Proovframe.tsv")
 		
-		s_path_to_the_assembly_after_polishing = s_path_to_the_output_folder + "/assembly_corrected_by_Proovframe.fasta"
+		#Один раз я наблюдал глюк, связанный с тем, что я запустил Mabs на узле с другой версией Linux. Из-за того, что там был другой Perl, Proovframe там не сработал. По-видимому, самый простой способ предостеречься от такого это сделать так, чтобы если результатов Proovframe не видно, то calculate_AG не завершал работу с ошибкой, а использовал для поиска генов результаты без Proovframe. В конце концов, флуктуации ошибок при сборках генов от сборки к сборке могут быть меньше, чем изменения качества сборки из-за оптимизации параметров сборщика. В таком случае, даже без Proovframe может получиться более-менее разумный результат.
+		if os.path.exists(s_path_to_the_output_folder + "/assembly_corrected_by_Proovframe.fasta"):
+			s_path_to_the_assembly_after_polishing = s_path_to_the_output_folder + "/assembly_corrected_by_Proovframe.fasta"
+		else:
+			s_path_to_the_assembly_after_polishing = s_path_to_the_output_folder + "/assembly__without_whitespace_characters_in_titles.fasta"
+			
 	#Если пользователь не говорил сделать шлифовку Proovframe, то называю "сборкой после шлифовки" ту сборку, которую дал пользователь.
 	else:
 		s_path_to_the_assembly_after_polishing = s_path_to_the_output_folder + "/assembly__without_whitespace_characters_in_titles.fasta"

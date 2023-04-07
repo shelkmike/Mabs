@@ -34,6 +34,7 @@ See [tutorial][tutorial] for more details.
   - [Assembling HiFi reads without additional data types](#hifionly)
   - [Hi-C integration](#hic)
   - [Trio binning](#trio)
+  - [Ultra-long ONT integration](#ul)
   - [Output files](#output)
 - [Results](#results)
 - [Getting Help](#help)
@@ -143,6 +144,14 @@ hifiasm -o NA12878.asm -t 32 -1 pat.yak -2 mat.yak /dev/null 2> NA12878.asm.trio
 ```
 The second command line will run much faster than the first.
 
+### <a name="ul"></a>Ultra-long ONT integration
+
+Hifiasm could integrate ultra-long ONT reads to improve the assembly quality:
+```sh
+hifiasm -o NA12878.asm -t32 --ul ul.fq.gz HiFi-reads.fq.gz
+```
+Please note that this mode is not stable right now. We have only tested with >=100kb UL reads.
+
 ### <a name="output"></a>Output files
 
 Hifiasm generates different types of assemblies based on the input data. 
@@ -226,3 +235,8 @@ If you use hifiasm in your work, please cite:
 > Haplotype-resolved de novo assembly using phased assembly graphs with
 > hifiasm. *Nat Methods*, **18**:170-175.
 > https://doi.org/10.1038/s41592-020-01056-5
+
+> Cheng, H., Jarvis, E.D., Fedrigo, O., Koepfli, K.P., Urban, L., Gemmell, N.J., Li, H. (2022)
+> Haplotype-resolved assembly of diploid genomes without parental data. 
+> *Nature Biotechnology*, **40**:1332–1335.
+> https://doi.org/10.1038/s41587-022-01261-x

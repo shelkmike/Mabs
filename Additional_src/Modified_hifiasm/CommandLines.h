@@ -1,10 +1,11 @@
 #ifndef __COMMAND_LINE_PARSER__
 #define __COMMAND_LINE_PARSER__
 
+#define __STDC_LIMIT_MACROS
 #include <pthread.h>
 #include <stdint.h>
 
-#define HA_VERSION "0.16.1-r375"
+#define HA_VERSION "0.19.3-r572"
 
 #define VERBOSE 0
 
@@ -21,9 +22,10 @@
 #define HA_F_HIGH_HET        0x400
 #define HA_F_PARTITION       0x800
 #define HA_F_FAST            0x1000
-#define HA_F_USKEW            0x2000
+#define HA_F_USKEW           0x2000
 
 #define HA_MIN_OV_DIFF       0.02 // min sequence divergence in an overlap
+#define MIN_N_CHAIN          100
 
 typedef struct{
     int *l, n; 
@@ -35,10 +37,11 @@ typedef struct {
     int num_reads;
     char** read_file_names;
     char* output_file_name;
-    int make_only_primary_contigs;
+	int make_only_primary_contigs;
     char* required_read_name;
 	char *fn_bin_yak[2];
 	char *fn_bin_list[2];
+    char *fn_bin_poy;
 	char *extract_list;
     enzyme *hic_reads[2];
     enzyme *hic_enzymes;
@@ -48,9 +51,11 @@ typedef struct {
     int k_mer_length;
     int hic_mer_length;
     int ul_mer_length;
+    int trans_mer_length;
     int bub_mer_length;
 	int mz_win;
     int ul_mz_win;
+    int trans_win;
     int mz_rewin;
     int ul_mz_rewin;
 	int mz_sample_dist;
@@ -77,6 +82,7 @@ typedef struct {
     int min_overlap_Len;
     int min_overlap_coverage;
     int max_short_tip;
+    int max_short_ul_tip;
     int min_cnt;
     int mid_cnt;
     int purge_level_primary;
@@ -97,6 +103,11 @@ typedef struct {
     float purge_simi_rate_l2;
     float purge_simi_rate_l3;
     float purge_simi_thres;
+    float trans_base_rate;
+    float trans_base_rate_sec;
+    float min_path_drop_rate;
+    float max_path_drop_rate;
+    // uint64_t path_clean_round;
 
     ///float purge_simi_rate_hic;
 
@@ -120,6 +131,22 @@ typedef struct {
     int32_t dp_min_len;
     float dp_e;
     int64_t hg_size;
+    float kpt_rate;
+    int64_t infor_cov, s_hap_cov;
+    double ul_error_rate, ul_error_rate_low, ul_error_rate_hpc;
+    int32_t ul_ec_round;
+    uint8_t is_dbg_het_cnt;
+    uint8_t is_low_het_ul;
+    uint8_t is_base_trans;
+    uint8_t is_read_trans;
+    uint8_t is_topo_trans;
+    uint8_t is_bub_trans;
+    uint8_t bin_only;
+    int32_t ul_clean_round;
+    int32_t prt_dbg_gfa;
+    int32_t integer_correct_round;
+    uint8_t dbg_ovec_cal;
+    uint8_t hifi_pst_join, ul_pst_join;
 } hifiasm_opt_t;
 
 extern hifiasm_opt_t asm_opt;
@@ -128,6 +155,7 @@ void init_opt(hifiasm_opt_t* asm_opt);
 void destory_opt(hifiasm_opt_t* asm_opt);
 void ha_opt_reset_to_round(hifiasm_opt_t* asm_opt, int round);
 void ha_opt_update_cov(hifiasm_opt_t *opt, int hom_cov);
+void ha_opt_update_cov_min(hifiasm_opt_t *opt, int hom_cov, int min_chain);
 int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt);
 double Get_T(void);
 

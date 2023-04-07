@@ -79,6 +79,7 @@ if __name__ == '__main__':
 
 	#инициализирую исходные значения переменных
 	s_path_to_pacbio_hifi_reads = "" #путь к файлу с ридами PacBio HiFi.
+	s_path_to_ultralong_nanopore_reads = "" #путь к файлу с ультрадлинными ридами Нанопора.
 	s_path_to_hic_short_reads_R1 = "" #путь к файлу с короткими ридами HiC первого конца.
 	s_path_to_hic_short_reads_R2 = "" #путь к файлу с короткими ридами HiC второго конца.
 	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/Latest/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
@@ -91,7 +92,9 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то Mabs-hifiasm всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	
-	s_Mabs_version = "2.14"
+	s_additional_hifiasm_parameters = "" #дополнительные параметры Hifiasm.
+	
+	s_Mabs_version = "2.18"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
@@ -101,30 +104,32 @@ if __name__ == '__main__':
 
 Main options:
 1) --pacbio_hifi_reads       Path to PacBio HiFi reads, also known as CCS reads.
-2) --short_hi-c_reads_R1     Path to short Hi-C reads, first reads from a pair.
-3) --short_hi-c_reads_R2     Path to short Hi-C reads, second reads from a pair.
+2) --ultralong_nanopore_reads        Path to ultralong Nanopore reads.
+3) --short_hi-c_reads_R1     Path to short Hi-C reads, first reads from a pair.
+4) --short_hi-c_reads_R2     Path to short Hi-C reads, second reads from a pair.
 
 [any of the above files may be in FASTQ or FASTA, gzipped or not]
 
-4) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly, use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-hifiasm will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
-5) --threads        Number of CPU threads to be used by Mabs-hifiasm. The default value is 10.
-6) --output_folder        Output folder for Mabs-hifiasm results. The default is "Mabs_results".
-7) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
-8) --ploidy		Ploidy of the genome. The default value is 2.
-9) --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number, possibly ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
-10) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
-11) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
+5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly, use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-hifiasm will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+6) --threads        Number of CPU threads to be used by Mabs-hifiasm. The default value is 10.
+7) --output_folder        Output folder for Mabs-hifiasm results. The default is "Mabs_results".
+8) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
+9) --ploidy		Ploidy of the genome. The default value is 2.
+10) --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number, possibly ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
+11) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
+12) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
+13) --additional_hifiasm_parameters        A string with additional parameters to be passed to Hifiasm, enclosed in square brackets. Example: "--additional_hifiasm_parameters [--hom-cov 50 -1 pat.yak -2 mat.yak]".
 
 Informational options:
-12) --help        Print this help.
-13) --version        Print the version of Mabs-hifiasm.
-14) --run_test        Assemble a small dataset to test whether Mabs-hifiasm was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-hifiasm was installed successfully.
+14) --help        Print this help.
+15) --version        Print the version of Mabs-hifiasm.
+16) --run_test        Assemble a small dataset to test whether Mabs-hifiasm was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-hifiasm was installed successfully.
 
 Example 1:
 mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --download_busco_dataset eudicots_odb10.2020-09-10.tar.gz --threads 40
 
 Example 2:
-mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40
+mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads nanopore_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40
 		""")
 		sys.exit()
 
@@ -205,7 +210,35 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 		if (len(sys.argv) == 1) or re.search(r"\s\-\-version", s_command_line):
 			print("Mabs-hifiasm " + s_Mabs_version)
 			sys.exit()
-				
+
+		#смотрю, указал ли пользователь в командной строке дополнительные параметры Hifiasm. Этот парсинг я делаю перед парсингом опций собственно Mabs-hifiasm, иначе, если у Hifiasm и Mabs-hifiasm есть одноимённые опции, и пользователь укажет одну из таких опций через "--additional_hifiasm_parameters", то Mabs-hifiasm подумает, что это его опция.
+		o_regular_expression_results = re.search(r" --additional_hifiasm_parameters \[(.*?)\]", s_command_line_reduced)
+		if o_regular_expression_results:
+			s_additional_hifiasm_parameters = o_regular_expression_results.group(1)
+			
+			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
+			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
+		
+		#проверяю, что пользователь не дал опцией --additional_hifiasm_parameters следующие опции: -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2 . Это потому, что Mabs-hifiasm их и так использует.
+		if re.search(r"\-s ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-s\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-o ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-o\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-t ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-t\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-\-n\-hap ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--n-hap\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-\-hg-size ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--hg-size\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-\-only-primary ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--only-primary\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-\-ul ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--ul\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-\-h1 ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--h1\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+		if re.search(r"\-\-h2 ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--h2\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")		
+		
 		#смотрю, дал ли пользователь риды PacBio HiFi
 		o_regular_expression_results = re.search(r" --pacbio_hifi_reads (\S+)", s_command_line_reduced)
 		if o_regular_expression_results:
@@ -215,7 +248,16 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			
 			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
 			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
-		
+				
+		#смотрю, дал ли пользователь ультрадлинные риды Нанопора
+		o_regular_expression_results = re.search(r" --ultralong_nanopore_reads (\S+)", s_command_line_reduced)
+		if o_regular_expression_results:
+			s_path_to_ultralong_nanopore_reads = o_regular_expression_results.group(1)
+			if not os.path.isfile(s_path_to_ultralong_nanopore_reads):
+				l_errors_in_command_line.append("The file with ultralong Nanopore reads " + s_path_to_ultralong_nanopore_reads + " does not exist.")
+			
+			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
+			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
 		
 		#смотрю, дал ли пользователь риды Hi-C первого конца
 		o_regular_expression_results = re.search(r" --short_hi-c_reads_R1 (\S+)", s_command_line_reduced)
@@ -363,12 +405,11 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 				elif re.search(r"[mM]$", s_maximum_allowed_intron_length):
 					s_maximum_allowed_intron_length = str(int(n_the_number * 1000000))
 				elif re.search(r"[gG]$", s_maximum_allowed_intron_length):
-					s_maximum_allowed_intron_length = str(int(n_the_number * 1000000000))
-				
+					s_maximum_allowed_intron_length = str(int(n_the_number * 1000000000))		
 		
-		#проверяю, что пользователь дал длинные риды.
+		#проверяю, что пользователь дал риды HiFi.
 		if (s_path_to_pacbio_hifi_reads == ""):
-			l_errors_in_command_line.append("You have not given Mabs-hifiasm long reads.")
+			l_errors_in_command_line.append("Mabs-hifiasm requires very accurate reads, provided via --pacbio_hifi_reads. If you don't have them, use Mabs-flye instead.")
 		
 		#проверяю, не ввёл ли пользователь какие-то несуществующие опции. Это я определяю по тому, что после того, как я распарсил все команды, в строке s_command_line_reduced осталось что-то, кроме названия исполняемого файла Mabs-hifiasm.
 		s_command_line_reduced = re.sub(r"^.*?mabs\-hifiasm(\.py)?\s*", "", s_command_line_reduced)
@@ -426,7 +467,23 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_logs.write("Started Mabs-hifiasm\n\n")
 
 	f_logs.write("You have run Mabs-hifiasm of version " + s_Mabs_version + " with the following command: " + s_command_line + "\n\n")
-
+	
+	#Это строка, в которой указаны пути ко всем ридам, которые нужно давать Modified_hifiasm, а также, если пользователь указал размер генома, то и размер генома. Например, "--hg-size 1g --h1 hic_reads_R1.fastq --hi2 hic_reads_R1.fastq --ul nanopore_reads.fastq hifi_reads.fastq", если был указан размер генома, и были указаны и риды Hi-C, и ультрадлинные риды Нанопора, и риды HiFi. Или, например, просто "hifi_reads.fastq" если размер генома не был указан, и были только риды HiFi. Эта строка нужна, чтобы Mabs-hifiasm было проще передавать аргументы командной строки Modified_hifiasm. Иначе, передача аргументов несколько осложнена, потому что в зависимости от того, какие опции дал Mabs-hifiasm пользователь, программа Modified_hifiasm нужно передавать разное количество аргументов.
+	s_command_line_arguments_with_reads_for_Modified_hifiasm = s_path_to_pacbio_hifi_reads
+	
+	#Если пользователь дал и ультрадлинные риды Нанопора
+	if s_path_to_ultralong_nanopore_reads != "":
+		s_command_line_arguments_with_reads_for_Modified_hifiasm = "--ul " + s_path_to_ultralong_nanopore_reads + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm
+	
+	#Если пользователь дал и риды Hi-C
+	if s_path_to_hic_short_reads_R1 != "":
+		s_command_line_arguments_with_reads_for_Modified_hifiasm = "--h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm
+	
+	#Если пользователь указал размер генома
+	if s_genome_size_estimate != "auto":
+		s_command_line_arguments_with_reads_for_Modified_hifiasm = "--hg-size " + s_genome_size_estimate + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm
+	
+	
 	#если пользователь делает сборку тестового набора ридов Mabs-hifiasm, то нужно написать подробности этого тестового набора.
 	if (len(sys.argv) == 2) and re.search(r"\s\-\-run_test", s_command_line):
 		f_logs.write("As a test, Mabs-hifiasm will assemble the first chromosome of Saccharomyces cerevisiae, which is approximately 200 kbp long, using 40x PacBio HiFi reads.\n\n")
@@ -494,22 +551,14 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	os.mkdir(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s))
 	
 	#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
-	#если пользователь не дал риды Hi-C и не указал размер генома.
-	if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate == "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
+	#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
+	#если пользователь не дал риды Hi-C
+	if (s_path_to_hic_short_reads_R1 == ""):
 		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-	#если пользователь дал риды Hi-C и не указал размер генома.
-	if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate == "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
-	#если пользователь не дал риды Hi-C и указал размер генома.
-	if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate != "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-	#если пользователь дал риды Hi-C и указал размер генома.
-	if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate != "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
+	#если пользователь дал риды Hi-C.
+	if (s_path_to_hic_short_reads_R1 != ""):
 		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
 	
 	#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
@@ -523,7 +572,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_infile.close()
 	f_outfile.close()
 	
-	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы из него перемещать файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin в каждую новую папку со сборкой, потому что их присутствие ускоряет сборку.
+	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы из неё перемещать файлы с расширениями .bin и .utg в новую папку со сборкой. Их присутствие ускоряет сборку.
 	
 	#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
 	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
@@ -559,26 +608,17 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	
 	#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
 	
-	#Перемещаю из прошлой папки со сборкой в эту файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin, потому что их присутствие ускоряет сборку.
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.reverse.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.source.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ec.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
+	#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+	os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
 	
-	#если пользователь не дал риды Hi-C и не указал размер генома.
-	if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate == "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+	
+	#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
+	#если пользователь не дал риды Hi-C
+	if (s_path_to_hic_short_reads_R1 == ""):
 		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-	#если пользователь дал риды Hi-C и не указал размер генома.
-	if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate == "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
-	#если пользователь не дал риды Hi-C и указал размер генома.
-	if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate != "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-	#если пользователь дал риды Hi-C и указал размер генома.
-	if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate != "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
+	#если пользователь дал риды Hi-C.
+	if (s_path_to_hic_short_reads_R1 != ""):
 		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
 	
 	#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
@@ -592,7 +632,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_infile.close()
 	f_outfile.close()
 
-	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы из него перемещать файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin в каждую новую папку со сборкой, потому что их присутствие ускоряет сборку.
+	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 	
 	#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
 	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
@@ -643,26 +683,17 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			
 			#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
 			
-			#Перемещаю из прошлой папки со сборкой в эту файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin, потому что их присутствие ускоряет сборку.
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.reverse.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.source.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ec.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
+			#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+			os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
 			
-			#если пользователь не дал риды Hi-C и не указал размер генома.
-			if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate == "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
+			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+	
+			#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
+			#если пользователь не дал риды Hi-C
+			if (s_path_to_hic_short_reads_R1 == ""):
 				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-			#если пользователь дал риды Hi-C и не указал размер генома.
-			if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate == "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
-			#если пользователь не дал риды Hi-C и указал размер генома.
-			if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate != "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-			#если пользователь дал риды Hi-C и указал размер генома.
-			if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate != "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
+			#если пользователь дал риды Hi-C.
+			if (s_path_to_hic_short_reads_R1 != ""):
 				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
 			
 			#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
@@ -676,7 +707,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			f_infile.close()
 			f_outfile.close()
 			
-			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы из него перемещать файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin в каждую новую папку со сборкой, потому что их присутствие ускоряет сборку.
+			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 			
 			#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
 			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
@@ -722,26 +753,17 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			
 			#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
 			
-			#Перемещаю из прошлой папки со сборкой в эту файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin, потому что их присутствие ускоряет сборку.
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.reverse.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.source.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ec.bin " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
+			#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+			os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
 			
-			#если пользователь не дал риды Hi-C и не указал размер генома.
-			if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate == "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
+			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+	
+			#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
+			#если пользователь не дал риды Hi-C
+			if (s_path_to_hic_short_reads_R1 == ""):
 				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-			#если пользователь дал риды Hi-C и не указал размер генома.
-			if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate == "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
-			#если пользователь не дал риды Hi-C и указал размер генома.
-			if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate != "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
-			#если пользователь дал риды Hi-C и указал размер генома.
-			if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate != "auto"):
-				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
+			#если пользователь дал риды Hi-C.
+			if (s_path_to_hic_short_reads_R1 != ""):
 				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
 			
 			#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
@@ -758,7 +780,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
 			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 			
-			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы из него перемещать файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin в каждую новую папку со сборкой, потому что их присутствие ускоряет сборку.
+			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 			
 			#Беру AG, посчитанный скриптом calculate_AG.py
 			if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt"):
@@ -794,28 +816,18 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_logs.write("The optimal -s is " + str(n_s_that_provides_maximum_AG) + ", it provides AG = " + str(n_maximum_AG) + ". Now performing a full assembly for this value of -s.\n\n")
 	os.mkdir(s_path_to_the_output_folder + "/The_best_assembly")
 				
-	#Перемещаю из прошлой папки со сборкой в эту файлы assembly.ovlp.reverse.bin, assembly.ovlp.source.bin, assembly.ec.bin, потому что их присутствие ускоряет сборку.
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.reverse.bin " + s_path_to_the_output_folder + "/The_best_assembly/")
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ovlp.source.bin " + s_path_to_the_output_folder + "/The_best_assembly/")
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/assembly.ec.bin " + s_path_to_the_output_folder + "/The_best_assembly/")
+	#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+	os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/The_best_assembly/")
 	
-	#если пользователь не дал риды Hi-C и не указал размер генома.
-	if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate == "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_provides_maximum_AG) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/The_best_assembly/assembly.bp.p_ctg.gfa"
-	#если пользователь дал риды Hi-C и не указал размер генома.
-	if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate == "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_provides_maximum_AG) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/The_best_assembly/assembly.hic.p_ctg.gfa"
-	#если пользователь не дал риды Hi-C и указал размер генома.
-	if (s_path_to_hic_short_reads_R1 == "") and (s_genome_size_estimate != "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_provides_maximum_AG) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/The_best_assembly/assembly.bp.p_ctg.gfa"
-	#если пользователь дал риды Hi-C и указал размер генома.
-	if (s_path_to_hic_short_reads_R1 != "") and (s_genome_size_estimate != "auto"):
-		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_provides_maximum_AG) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " --hg-size " + s_genome_size_estimate + " -t " + str(n_number_of_cpu_threads_to_use) + " --h1 " + s_path_to_hic_short_reads_R1 + " --h2 " + s_path_to_hic_short_reads_R2 + " " + s_path_to_pacbio_hifi_reads)
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/The_best_assembly/assembly.hic.p_ctg.gfa"
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_provides_maximum_AG) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
+	#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
+	#если пользователь не дал риды Hi-C
+	if (s_path_to_hic_short_reads_R1 == ""):
+		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/The_best_assembly/assembly.bp.p_ctg.gfa"
+	#если пользователь дал риды Hi-C.
+	if (s_path_to_hic_short_reads_R1 != ""):
+		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/The_best_assembly/assembly.hic.p_ctg.gfa"
 	
 	#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
 	f_infile = open(s_path_to_gfa_with_primary_contigs, "r")

@@ -30,8 +30,8 @@ from flye.utils.bytes2human import human2bytes, bytes2human
 from flye.utils.sam_parser import AlignmentException
 import flye.utils.fasta_parser as fp
 #import flye.short_plasmids.plasmids as plas
-import flye.trestle.trestle as tres
-import flye.trestle.graph_resolver as tres_graph
+#import flye.trestle.trestle as tres
+#import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
 from flye.six.moves import range
 
@@ -122,43 +122,6 @@ class JobAssembly(Job):
                                         "size parameters are correct")
         asm_len, asm_n50 = scf.short_statistics(self.assembly_filename)
         logger.debug("Disjointigs length: %d, N50: %d", asm_len, asm_n50)
-
-
-#class JobShortPlasmidsAssembly(Job):
-#    def __init__(self, args, work_dir, contigs_file, repeat_graph,
-#                 graph_edges):
-#        super(JobShortPlasmidsAssembly, self).__init__()
-#
-#        self.args = args
-#        self.work_dir = work_dir
-#        self.work_dir = os.path.join(work_dir, "22-plasmids")
-#        self.contigs_path = contigs_file
-#        self.repeat_graph = repeat_graph
-#        self.graph_edges = graph_edges
-#
-#        self.name = "plasmids"
-#        self.out_files["repeat_graph"] = os.path.join(self.work_dir,
-#                                                      "repeat_graph_dump")
-#        self.out_files["repeat_graph_edges"] = \
-#            os.path.join(self.work_dir, "repeat_graph_edges.fasta")
-#
-#
-#    def run(self):
-#        super(JobShortPlasmidsAssembly, self).run()
-#        logger.info("Recovering short unassembled sequences")
-#        if not os.path.isdir(self.work_dir):
-#            os.mkdir(self.work_dir)
-#        plasmids = plas.assemble_short_plasmids(self.args, self.work_dir,
-#                                                self.contigs_path)
-#
-#        #updating repeat graph
-#        repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
-#        repeat_graph.load_from_file(self.repeat_graph)
-#        plas.update_graph(repeat_graph, plasmids)
-#        repeat_graph.dump_to_file(self.out_files["repeat_graph"])
-#        fp.write_fasta_dict(repeat_graph.edges_fasta,
-#                            self.out_files["repeat_graph_edges"])
-
 
 
 class JobRepeat(Job):
@@ -314,8 +277,7 @@ class JobConsensus(Job):
         logger.info("Running Minimap2")
         out_alignment = os.path.join(self.consensus_dir, "minimap.bam")
         aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
-                           self.consensus_dir, self.args.platform, out_alignment,
-                           reference_mode=True, sam_output=True)
+                           self.args.platform, self.args.read_type, out_alignment)
 
         contigs_info = aln.get_contigs_info(self.in_contigs)
         logger.info("Computing consensus")
@@ -363,66 +325,12 @@ class JobPolishing(Job):
                                self.out_files["stats"], self.out_files["contigs"])
         pol.generate_polished_edges(self.in_graph_edges, self.in_graph_gfa,
                                     self.out_files["contigs"],
-                                    self.polishing_dir, self.args.platform,
+                                    self.polishing_dir, self.args.platform, self.args.read_type,
                                     stats, self.args.threads)
         os.remove(contigs)
         if os.path.getsize(self.out_files["contigs"]) == 0:
             raise asm.AssembleException("No contigs were assembled - "
                                         "pipeline stopped")
-
-
-class JobTrestle(Job):
-    def __init__(self, args, work_dir, log_file, repeat_graph,
-                 graph_edges, reads_alignment_file):
-        super(JobTrestle, self).__init__()
-
-        self.args = args
-        self.work_dir = os.path.join(work_dir, "21-trestle")
-        self.log_file = log_file
-        #self.repeats_dump = repeats_dump
-        self.graph_edges = graph_edges
-        self.repeat_graph = repeat_graph
-        self.reads_alignment_file = reads_alignment_file
-
-        self.name = "trestle"
-        self.out_files["repeat_graph"] = os.path.join(self.work_dir,
-                                                      "repeat_graph_dump")
-        self.out_files["repeat_graph_edges"] = \
-            os.path.join(self.work_dir, "repeat_graph_edges.fasta")
-
-    def run(self):
-        super(JobTrestle, self).run()
-
-        if not os.path.isdir(self.work_dir):
-            os.mkdir(self.work_dir)
-
-        summary_file = os.path.join(self.work_dir, "trestle_summary.txt")
-        resolved_repeats_seqs = os.path.join(self.work_dir,
-                                             "resolved_copies.fasta")
-        repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
-        repeat_graph.load_from_file(self.repeat_graph)
-
-        try:
-            repeats_info = tres_graph \
-                .get_simple_repeats(repeat_graph, self.reads_alignment_file,
-                                    fp.read_sequence_dict(self.graph_edges))
-            tres_graph.dump_repeats(repeats_info,
-                                    os.path.join(self.work_dir, "repeats_dump"))
-
-            tres.resolve_repeats(self.args, self.work_dir, repeats_info,
-                                 summary_file, resolved_repeats_seqs)
-            tres_graph.apply_changes(repeat_graph, summary_file,
-                                     fp.read_sequence_dict(resolved_repeats_seqs))
-        except KeyboardInterrupt as e:
-            raise
-        #except Exception as e:
-        #    logger.warning("Caught unhandled exception: " + str(e))
-        #    logger.warning("Continuing to the next pipeline stage. "
-        #                   "Please submit a bug report along with the full log file")
-
-        repeat_graph.dump_to_file(self.out_files["repeat_graph"])
-        fp.write_fasta_dict(repeat_graph.edges_fasta,
-                            self.out_files["repeat_graph_edges"])
 
 
 def _create_job_list(args, work_dir, log_file):
@@ -452,13 +360,12 @@ def _create_job_list(args, work_dir, log_file):
 
     #Trestle: Resolve Unbridged Repeats
     #if not args.no_trestle and not args.meta and args.read_type == "raw":
-    if args.trestle:
-        jobs.append(JobTrestle(args, work_dir, log_file,
-                    repeat_graph, repeat_graph_edges,
-                    reads_alignment))
-        repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
-        repeat_graph = jobs[-1].out_files["repeat_graph"]
-
+    #if args.trestle:
+    #    jobs.append(JobTrestle(args, work_dir, log_file,
+    #                repeat_graph, repeat_graph_edges,
+    #                reads_alignment))
+    #    repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
+    #    repeat_graph = jobs[-1].out_files["repeat_graph"]
 
     #Contigger
     jobs.append(JobContigger(args, work_dir, log_file, repeat_graph_edges,
@@ -619,7 +526,8 @@ def _usage():
             "\t     [--meta] [--polish-target] [--min-overlap SIZE]\n"
             "\t     [--keep-haplotypes] [--debug] [--version] [--help] \n"
             "\t     [--scaffold] [--resume] [--resume-from] [--stop-after] \n"
-            "\t     [--read-error float] [--extra-params]")
+            "\t     [--read-error float] [--extra-params] \n"
+            "\t     [--deterministic]")
 
 
 def _epilog():
@@ -752,6 +660,9 @@ def main():
                         dest="debug", default=False,
                         help="enable debug output")
     parser.add_argument("-v", "--version", action="version", version=_version())
+    parser.add_argument("--deterministic", action="store_true",
+                        dest="deterministic", default=False,
+                        help="perform disjointig assembly single-threaded")
     args = parser.parse_args()
 
     if args.asm_coverage and (args.genome_size is None):

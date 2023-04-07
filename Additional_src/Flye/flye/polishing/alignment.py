@@ -39,20 +39,9 @@ def check_binaries():
 
 
 def make_alignment(reference_file, reads_file, num_proc,
-                   work_dir, platform, out_alignment, reference_mode,
-                   sam_output):
-    """
-    Runs minimap2 and sorts its output
-    """
-    minimap_ref_mode = {False: "ava", True: "map"}
-    minimap_reads_mode = {"nano": "ont", "pacbio": "pb"}
-    mode = minimap_ref_mode[reference_mode] + "-" + minimap_reads_mode[platform]
-
-    _run_minimap(reference_file, reads_file, num_proc, mode,
-                 out_alignment, sam_output)
-
-    #if sam_output:
-    #    preprocess_sam(out_alignment, work_dir)
+                   platform, read_type, out_alignment):
+    mode = platform + "-" + read_type
+    _run_minimap(reference_file, reads_file, num_proc, mode, out_alignment)
 
 
 def get_contigs_info(contigs_file):
@@ -107,7 +96,8 @@ def get_uniform_alignments(alignments):
     MIN_QV = 20
 
     def is_reliable(aln):
-        return not aln.is_secondary and not aln.is_supplementary and aln.map_qv >= MIN_QV
+        return not aln.is_secondary and aln.map_qv >= MIN_QV
+        #return not aln.is_secondary and not aln.is_supplementary and aln.map_qv >= MIN_QV
 
     seq_len = alignments[0].trg_len
     ctg_id = alignments[0].trg_id
@@ -234,8 +224,7 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
     return out_dict
 
 
-def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
-                 sam_output):
+def _run_minimap(reference_file, reads_files, num_proc, reads_type, out_file):
     #SAM_HEADER = "\'@PG|@HD|@SQ|@RG|@CO\'"
     work_dir = os.path.dirname(out_file)
     stderr_file = os.path.join(work_dir, "minimap.stderr")
@@ -243,9 +232,22 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     SORT_MEM = "4G" if os.path.getsize(reference_file) > 100 * 1024 * 1024 else "1G"
     BATCH = "5G" if os.path.getsize(reference_file) > 100 * 1024 * 1024 else "1G"
 
+    mode = None
+    extra_args = []
+    if reads_type in ["pacbio-raw", "pacbio-corrected", "pacbio-subasm"]:
+        mode = "map-pb"
+    if reads_type == "pacbio-hifi":
+        mode = "map-hifi"
+    elif reads_type in ["nano-raw", "nano-corrected"]:
+        mode = "map-ont"
+    elif reads_type == "nano-nano_hq":
+        mode = "map-ont"
+        extra_args = ["-k", "17"]
+
     cmdline = [MINIMAP_BIN, "'" + reference_file + "'"]
     cmdline.extend(["'" + read_file + "'" for read_file in reads_files])
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
+    cmdline.extend(extra_args)
 
     #Produces gzipped SAM sorted by reference name. Since it's not sorted by
     #read name anymore, it's important that all reads have SEQ.
@@ -256,22 +258,14 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     #--secondary-seq = custom option to output SEQ for seqcondary alignment with hard clipping
     #-L: move CIGAR strings for ultra-long reads to the separate tag
     #-Q don't output fastq quality
-    if sam_output:
-        tmp_prefix = os.path.join(os.path.dirname(out_file),
-                                  "sort_" + datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
-        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "--sam-hit-only", "-L", "-K", BATCH,
-                        "-z", "1000", "-Q", "--secondary-seq", "-I", "64G"])
-        cmdline.extend(["|", SAMTOOLS_BIN, "view", "-T", "'" + reference_file + "'", "-u", "-"])
-        cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-T", "'" + tmp_prefix + "'", "-O", "bam",
-                        "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
-        cmdline.extend(["-o", "'" + out_file + "'"])
-    else:
-        pass    #paf output enabled by default
-
-        #cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
-        #cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
-        #                "--parallel=8", "-S", "4G"])
-        #cmdline.extend(["|", "gzip", "-1"])
+    tmp_prefix = os.path.join(os.path.dirname(out_file),
+                              "sort_" + datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
+    cmdline.extend(["-a", "-p", "0.5", "-N", "10", "--sam-hit-only", "-L", "-K", BATCH,
+                    "-z", "1000", "-Q", "--secondary-seq", "-I", "64G"])
+    cmdline.extend(["|", SAMTOOLS_BIN, "view", "-T", "'" + reference_file + "'", "-u", "-"])
+    cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-T", "'" + tmp_prefix + "'", "-O", "bam",
+                    "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
+    cmdline.extend(["-o", "'" + out_file + "'"])
 
     #logger.debug("Running: " + " ".join(cmdline))
     try:
@@ -280,11 +274,11 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
                               "set -eo pipefail; " + " ".join(cmdline)],
                               stderr=open(stderr_file, "w"),
                               stdout=open(os.devnull, "w"))
-        if sam_output:
-            subprocess.check_call(SAMTOOLS_BIN + " index -@ 4 " + "'" + out_file + "'", shell=True)
+        subprocess.check_call(SAMTOOLS_BIN + " index -@ 4 " + "'" + out_file + "'", shell=True)
         #os.remove(stderr_file)
 
     except (subprocess.CalledProcessError, OSError) as e:
         logger.error("Error running minimap2, terminating. See the alignment error log "
                      " for details: " + stderr_file)
+        logger.error("Cmd: " + " ".join(cmdline))
         raise AlignmentException(str(e))

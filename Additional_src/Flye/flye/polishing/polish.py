@@ -12,6 +12,7 @@ import logging
 import subprocess, multiprocessing
 import os
 from collections import defaultdict
+import gzip
 
 from flye.polishing.alignment import (make_alignment, get_contigs_info,
                                       merge_chunks, split_into_chunks)
@@ -64,6 +65,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
     use_hopo = cfg.vals["err_modes"][read_platform]["hopo_enabled"]
     use_hopo = use_hopo and (read_type == "raw")
     stats_file = os.path.join(work_dir, "contigs_stats.txt")
+    bed_coverage = os.path.join(work_dir, "base_coverage.bed.gz")
 
     bam_input = read_seqs[0].endswith("bam")
 
@@ -78,8 +80,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
             logger.info("Running minimap2")
             alignment_file = os.path.join(work_dir, "minimap_{0}.bam".format(i + 1))
             make_alignment(prev_assembly, read_seqs, num_threads,
-                           work_dir, read_platform, alignment_file,
-                           reference_mode=True, sam_output=True)
+                           read_platform, read_type, alignment_file)
         else:
             logger.info("Polishing with provided bam")
             alignment_file = read_seqs[0]
@@ -109,7 +110,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
         logger.info("Correcting bubbles")
         _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
                         consensus_out, num_threads, output_progress, use_hopo)
-        polished_fasta, polished_lengths = _compose_sequence(consensus_out)
+        polished_fasta, polished_lengths, bubble_coverages = _compose_sequence(consensus_out)
         fp.write_fasta_dict(polished_fasta, polished_file)
 
         #Cleanup
@@ -127,6 +128,14 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
             f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
+    with gzip.open(bed_coverage, "wt") as f:
+        f.write("#seq_name\tstart\tend\tcoverage\n")
+        for ctg_id in bubble_coverages:
+            cur_pos = 0
+            for (bub_len, bub_cov) in bubble_coverages[ctg_id]:
+                f.write("{0}\t{1}\t{2}\t{3}\n".format(ctg_id, cur_pos, cur_pos + bub_len, bub_cov))
+                cur_pos += bub_len
+
     if not output_progress:
         logger.disabled = logger_state
 
@@ -134,7 +143,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
 
 
 def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
-                            error_mode, polished_stats, num_threads):
+                            platform, read_type, polished_stats, num_threads):
     """
     Generate polished graph edges sequences by extracting them from
     polished contigs
@@ -153,8 +162,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     alignment_file = os.path.join(work_dir, "edges_aln.bam")
     polished_dict = fp.read_sequence_dict(polished_contigs)
     make_alignment(polished_contigs, [edges_file], num_threads,
-                   work_dir, error_mode, alignment_file,
-                   reference_mode=True, sam_output=True)
+                   platform, read_type, alignment_file)
     aln_reader = SynchronizedSamReader(alignment_file,
                                        polished_dict, multiprocessing.Manager(),
                                        cfg.vals["max_read_coverage"])
@@ -309,19 +317,23 @@ def _compose_sequence(consensus_file):
 
                 ctg_id = tokens[0][1:]
                 ctg_pos = int(tokens[1])
-                #coverage[ctg_id].append(int(tokens[2]))
+                coverage = int(tokens[2])
                 ctg_sub_pos = int(tokens[3])
             else:
-                consensuses[ctg_id].append((ctg_pos, ctg_sub_pos, line.strip()))
+                consensuses[ctg_id].append((ctg_pos, ctg_sub_pos, coverage, line.strip()))
             header = not header
 
     polished_fasta = {}
     polished_stats = {}
+    polished_coverages = {}
     for ctg_id, seqs in iteritems(consensuses):
-        sorted_seqs = [p[2] for p in sorted(seqs, key=lambda p: (p[0], p[1]))]
+        seqs.sort(key=lambda p: (p[0], p[1]))
+        sorted_seqs = [p[3] for p in seqs]
+        bubble_coverages = [(len(p[3]), p[2]) for p in seqs]
         concat_seq = "".join(sorted_seqs)
         #mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])
         polished_fasta[ctg_id] = concat_seq
         polished_stats[ctg_id] = len(concat_seq)
+        polished_coverages[ctg_id] = bubble_coverages
 
-    return polished_fasta, polished_stats
+    return polished_fasta, polished_stats, polished_coverages
