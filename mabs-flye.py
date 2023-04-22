@@ -112,7 +112,7 @@ if __name__ == '__main__':
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	s_additional_flye_parameters = "" #дополнительные параметры Flye.
 	
-	s_Mabs_version = "2.18"
+	s_Mabs_version = "2.19"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 

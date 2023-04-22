@@ -94,7 +94,7 @@ if __name__ == '__main__':
 	
 	s_additional_hifiasm_parameters = "" #дополнительные параметры Hifiasm.
 	
-	s_Mabs_version = "2.18"
+	s_Mabs_version = "2.19"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
