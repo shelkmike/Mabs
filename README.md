@@ -43,13 +43,15 @@ To see the full list of options, run
 
 Since Mabs-hifiasm is based on Hifiasm (https://github.com/chhylp123/hifiasm), it can use paired-end Hi-C reads in addition to long reads. Provide trimmed Hi-C reads with options "--short_hi-c_reads_R1" and "--short_hi-c_reads_R2".
 
+Mabs-hifiasm can also use ultra-long (N50 > 50 kbp) Nanopore reads. Provide them with the option "--ultralong_nanopore_reads".
+
 Examples of using Mabs-hifiasm.
 
 Example 1:<br>
 `mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --download_busco_dataset eudicots_odb10.2020-09-10.tar.gz --threads 40`
 
 Example 2:<br>
-`mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40`
+`mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads ultralong_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40`
 <br><br>
 <a name="internal_link_to_Mabs-flye"></a>
 #### b) Mabs-flye
@@ -90,7 +92,7 @@ These two commands assemble the first chromosome of <i>Saccharomyces cerevisiae<
 Besides Mabs-hifiasm and Mabs-flye, Mabs contains a third tool, named calculate_AG. Its purpose is to assess genome assembly quality.
 <br><br>
 calculate_AG is used internally by Mabs-hifiasm and Mabs-flye, but also can be used externally if a user wants to assess the quality of some assembly.<br><br>
-The main concept in calculate_AG is "AG", which is a metric of gene assembly quality used by Mabs. "AG" is short for "Accurately assembled Genes". It is calculated as a sum of the following two values:<br>
+The main concept in calculate_AG is "AG", which is a metric of gene assembly quality used by Mabs. "AG" is short for "the number of Accurately assembled Genes". It is calculated as a sum of the following two values:<br>
 a) The number of genes in single-copy BUSCO orthogroups.<br>
 b) The number of genes in true multicopy orthogroups. "True multicopy" means that there is more than one gene in these orthogroups not because of assembly errors, but because these genes are actual paralogs. In contrast, the number of genes in false multicopy orthogroups (the orthogroups where genes' duplications are because of assembly errors) is not included in AG.<br><br>
 AG, in my opinion, may be a better metric of gene assembly quality than BUSCO results, because BUSCO does not differentiate true multicopy orthogroups and false multicopy orthogroups, combining them into a single "D" category.<br>
@@ -127,15 +129,17 @@ Though the primary purpose of Mabs is creation of assemblies with few haplotypic
 No. When evaluating which genes were assembled correctly and which were assembled incorrectly, Mabs relies on their coverage. In a metagenomic sequencing different genomes have different coverage, which makes Mabs useless.
 6. Can Mabs be used to assemble haploid genomes, for example bacterial?<br>
 Yes. Though, I don't expect Mabs to be much better than Hifiasm and Flye for haploid genomes since haploid genome assemblies cannot have haplotypic duplications.
-7. Can Mabs-hifiasm perform a trio binning assembly as Hifiasm does?<br>
-No. If you want me to add this functionality, let me know via [Issues](https://github.com/shelkmike/Mabs/issues).
-8. The option "--download_busco_dataset" fails to download a BUSCO dataset. What should I do?<br>
+7. Can Mabs-hifiasm perform a trio binning assembly like Hifiasm?<br>
+Yes. You'll need to make "pat.yak" and "mat.yak" files as described in the readme of Hifiasm (https://github.com/chhylp123/hifiasm) and then provide them to Mabs via "--additional_hifiasm_parameters [-1 pat.yak -2 mat.yak]".
+8. Should additional programs for haplotypic duplications removal (such as Purge_dups) be applied to assemblies made by Mabs?<br>
+In my experience, you can improve assemblies made by Mabs-flye by Purge_dups. However, in my experience, Purge_dups has detrimendal effect on assemblies made by Mabs-hifiasm. Still, you can try and see for yourself.
+9. The option "--download_busco_dataset" fails to download a BUSCO dataset. What should I do?<br>
 This can happen if http://mikeshelk.site and, consequently, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible for some reason. To deal with this problem, manually download a file from http://busco-data.ezlab.org/v5/data/lineages/ and provide it to Mabs via the option "--local_busco_dataset".
-9. What does "Mabs" mean?<br>
+10. What does "Mabs" mean?<br>
 Funny to say, but "Mabs" means "Miniasm-based Assembler which maximizes Busco Score". That's because:<br>
 a) Mabs 1 was based on Miniasm instead of Hifiasm and Flye.<br>
 Miniasm takes as input a set of read overlaps produced by a program like Minimap2. Provided a file with overlaps, Miniasm performs assembly very quickly. The prominent speed of Miniasm allows exploring the parameter space more thoroughly than when using Hifiasm or Flye, which are 1-2 orders of magnitude slower. However, I later realized that the algorithm of Miniasm is inferior to the algorithms of Hifiasm and Flye, and even a more thorough exploration of a parameter space usually doesn't make Miniasm assemblies better than assemblies of Hifiasm and Flye. Therefore, I created Mabs 2 that uses Hifiasm and Flye. Mabs 1 worked in a 4-dimensional parameter space (optimized 4 different parameters of Miniasm), while Mabs 2 works in a 1-dimensional parameter space.<br><br>
 b) "Busco Score" is because very early versions of Mabs simply maximized BUSCO's "S" (the number of single-copy genes). However, I quickly realized that maximization of S may lead to collapsing of close paralogs, because it transfers them from the "multicopy" category to the "single-copy" category, thus increasing S. To deal with this problem, I started to classify multicopy genes into true multicopy (TM) and false multicopy (FM), and devised AG as a target for maximization, which is a sum of S and TM.
-10. How to cite Mabs?<br>
+11. How to cite Mabs?<br>
 Cite the preprint [https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
 
