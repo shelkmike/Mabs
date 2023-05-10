@@ -57,7 +57,7 @@ Example 2:<br>
 #### b) Mabs-flye
 Mabs-flye is intended for Nanopore reads and PacBio CLR reads (also known as "old PacBio reads"). Similarly to Mabs-hifiasm, Mabs-flye requires two values:
 1. A path to reads, provided via options "--nanopore_reads", "--pacbio_clr_reads" or "--pacbio_hifi_reads". If you have several read datasets created by different technologies, these options can be used simultaneously. Keep in mind that if you have only HiFi reads, it's better to use Mabs-hifiasm.
-2. A path to a BUSCO dataset, provided via options "--download_busco_dataset" or "--local_busco_dataset". For details, see "2." in the description of Mabs-hifiasm above.
+2. A BUSCO dataset, provided via options "--download_busco_dataset" or "--local_busco_dataset". For details, see "2." in the description of Mabs-hifiasm above.
 
 To see the full list of options, run
 `mabs-flye.py --help`
