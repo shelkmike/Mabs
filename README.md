@@ -2,7 +2,7 @@
 The core idea of Mabs is to optimize parameters of a genome assembler in order to make an assembly where **protein-coding genes** are assembled more accurately than when the assembler is run with its default parameters.<br><br>
 Briefly, Mabs works as follows:
 1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses a couple of tricks to accelerate the assembly process.
-2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#internal_link_to_calculate_AG).
+2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#calculate_ag).
 3) The genome assembly with the largest AG is considered the best.
 
 For details about the algorithm of Mabs see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
@@ -13,25 +13,22 @@ For details about the algorithm of Mabs see [a preprint on BioRxiv](https://www.
 
 ## Table of Contents
 
-- [Installation](#internal_link_to_Installation)
-- [How to use](#internal_link_to_How_to_use)
-  - [Mabs-hifiasm](#internal_link_to_Mabs-hifiasm)
-  - [Mabs-flye](#internal_link_to_Mabs-flye)
-  - [The output of Mabs](#internal_link_to_The_output_of_Mabs)
-  - [Testing Mabs-hifiasm and Mabs-flye](#internal_link_to_Testing_Mabs-hifiasm_and_Mabs-flye)
-- [calculate_AG](#internal_link_to_calculate_AG)
-- [Questions and Answers](#internal_link_to_Questions_and_Answers)
+- [Installation](#installation)
+- [How to use](#how-to-use)
+  - [Mabs-hifiasm](#a-mabs-hifiasm)
+  - [Mabs-flye](#b-mabs-flye)
+  - [The output of Mabs](#c-the-output-of-mabs)
+  - [Testing Mabs-hifiasm and Mabs-flye](#d-testing-mabs-hifiasm-and-mabs-flye)
+- [calculate_AG](#calculate_ag)
+- [Questions and Answers](#questions-and-answers)
 <br><br>
-<a name="internal_link_to_Installation"></a>
 ## Installation
 Mabs requires Python 3, Perl 5, GCC, Zlib-dev, Make.<br>
 To install Mabs, download the latest version from [Releases](https://github.com/shelkmike/Mabs/releases), then extract the archive and run<br>
 `bash install.sh`
 <br><br>
-<a name="internal_link_to_How_to_use"></a>
 ## How to use
 Two main components of Mabs are Mabs-hifiasm and Mabs-flye. Mabs-hifiasm works as a parameter optimizer of Hifiasm, while Mabs-flye works as a parameter optimizer of Flye.
-<a name="internal_link_to_Mabs-hifiasm"></a>
 #### a) Mabs-hifiasm
 Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can be used for very accurate (accuracy ≥99%) Nanopore reads, as their characteristics are similar to characteristics of HiFi reads. <br>
 To run Mabs-hifiasm, a user should provide two values:
@@ -55,7 +52,6 @@ Example 1:<br>
 Example 2:<br>
 `mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads ultralong_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40`
 <br><br>
-<a name="internal_link_to_Mabs-flye"></a>
 #### b) Mabs-flye
 Mabs-flye is intended for Nanopore reads and PacBio CLR reads (also known as "old PacBio reads"). Similarly to Mabs-hifiasm, Mabs-flye requires two values:
 1. A path to reads, provided via options "--nanopore_reads", "--pacbio_clr_reads" or "--pacbio_hifi_reads". If you have several read datasets created by different technologies, these options can be used simultaneously. Keep in mind that if you have only HiFi reads, it's better to use Mabs-hifiasm.
@@ -72,7 +68,6 @@ Example 1:<br>
 Example 2:<br>
 `mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hifi_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40`
 <br><br>
-<a name="internal_link_to_The_output_of_Mabs"></a>
 #### c) The output of Mabs
 Both Mabs-hifiasm and Mabs-flye have a similar output structure. Both of them create a folder which, by default, is named "Mabs_results". The name can be changed via the "--output_folder" option. The two main files that a user may need are:
 1) ./Mabs_results/mabs_logs.txt<br>
@@ -80,7 +75,6 @@ This file contains information on how Mabs-hifiasm or Mabs-flye run and whether 
 2) ./Mabs_results/The_best_assembly/assembly.fasta<br>
 These are the contigs you need.
 <br><br>
-<a name="internal_link_to_Testing_Mabs-hifiasm_and_Mabs-flye"></a>
 #### d) Testing Mabs-hifiasm and Mabs-flye
 If you are not sure whether Mabs-hifiasm and Mabs-flye have been installed properly, you can run
 `mabs-hifiasm.py --run_test`
@@ -89,7 +83,6 @@ or
 
 These two commands assemble the first chromosome of <i>Saccharomyces cerevisiae</i>, which is approximately 200 kbp. If after the assembly finishes you see a file ./Mabs_results/The_best_assembly/assembly.fasta which is slightly larger than 200 KB, Mabs works correctly.
 <br><br>
-<a name="internal_link_to_calculate_AG"></a>
 ## calculate_AG
 Besides Mabs-hifiasm and Mabs-flye, Mabs contains a third tool, named calculate_AG. Its purpose is to assess genome assembly quality.
 <br><br>
@@ -117,7 +110,6 @@ This type of diagrams is called sinaplot, see https://cran.r-project.org/web/pac
 <br><br>
 The recommended usage of calculate_AG is to compare the quality of assemblies of a single genome made by different genome assemblers, or made by a single assembler with different parameters. Besides the value of AG (in the file ./AG_calculation_results/AG.txt), calculate_AG also provides the exact numbers of genes in single-copy orthogroups, in true multicopy orthogroups, and in false multicopy orthogroups; the corresponding values can be found at the end of the file ./AG_calculation_results/logs.txt.
 <br><br>
-<a name="internal_link_to_Questions_and_Answers"></a>
 ## Questions and Answers
 1. Is Mabs useful?<br>
 In my experience, Mabs-hifiasm is currently the best tool for genome assembly using PacBio HiFi reads.<br>
