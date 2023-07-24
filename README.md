@@ -1,10 +1,12 @@
-**Mabs** is a genome assembly tool which optimizes parameters of genome assemblers Hifiasm and Flye.<br>
+**Mabs** is a genome assembly tool which optimizes parameters of genome assemblers Hifiasm and Flye.<br><br>
+The core idea of Mabs is to optimize parameters of a genome assembler in order to make an assembly where **protein-coding genes** are assembled more accurately than when the assembler is run with its default parameters.<br><br>
 Briefly, Mabs works as follows:
-1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses special tricks to accelerate the assembly process.
+1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses a couple of tricks to accelerate the assembly process.
 2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#internal_link_to_calculate_AG).
 3) The genome assembly with the largest AG is considered the best.
 
-Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces better or equal assemblies. For details, see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
+For details about the algorithm of Mabs see [a preprint on BioRxiv](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).
+
 <br><br>
 <table><tr><td>If you have tried Mabs, please let me know via Issues (https://github.com/shelkmike/Mabs/issues), even if you experienced no problems. Please, write about how Mabs compares with other assemblers you tried and whether you have any recommendations for future versions of Mabs.</td></tr></table>
 <br>
@@ -117,30 +119,33 @@ The recommended usage of calculate_AG is to compare the quality of assemblies of
 <br><br>
 <a name="internal_link_to_Questions_and_Answers"></a>
 ## Questions and Answers
-1. Should assemblies produced by Mabs be polished afterwards?<br>
+1. Is Mabs useful?<br>
+In my experience, Mabs-hifiasm is currently the best tool for genome assembly using PacBio HiFi reads.<br>
+For Oxford Nanopore reads, I strongly recommend to try [NextDenovo](https://github.com/Nextomics/NextDenovo). In my experience, NextDenovo often makes better assemblies than Flye and Mabs-flye.
+2. Should assemblies produced by Mabs be polished afterwards?<br>
 The assemblies made by Mabs-hifiasm are accurate already. The assemblies made by Mabs-flye require polishing by accurate reads. "Accurate reads" are reads of Illumina, MGI, or PacBio HiFi. Good programs for polishing are, for example, [HyPo](https://github.com/kensung-lab/hypo), [POLCA](https://github.com/alekseyzimin/masurca), [Racon](https://github.com/lbcb-sci/racon).
-2. How to assemble a genome using high-accuracy Nanopore reads?<br>
+3. How to assemble a genome using high-accuracy Nanopore reads?<br>
 If you have Nanopore reads with really high accuracy (≥99%), I advise trying both Mabs-hifiasm and Mabs-flye.
-3. What is the program "Modified_hifiasm" used by Mabs?<br>
+4. What is the program "Modified_hifiasm" used by Mabs?<br>
 Modified_hifiasm is a special version of Hifiasm, where I added an option "--only-primary". With this option, Modified_hifiasm stops after creating the file with the primary assembly. Usage of Modified_hifiasm makes Mabs-hifiasm faster than when using the original Hifiasm.
-4. Is it worth using Mabs if I don't expect a high number of haplotypic duplications?<br>
+5. Is it worth using Mabs if I don't expect a high number of haplotypic duplications?<br>
 Though the primary purpose of Mabs is creation of assemblies with few haplotypic duplications, it may be useful even if you don't expect many haplotypic duplications. Since Mabs optimizes parameters of Hifiasm or Flye to maximize the gene assembly quality, in most cases it will produce assemblies better than or equal to Hifiasm or Flye.
-5. Can Mabs be used to assemble metagenomes?<br>
+6. Can Mabs be used to assemble metagenomes?<br>
 No. When evaluating which genes were assembled correctly and which were assembled incorrectly, Mabs relies on their coverage. In a metagenomic sequencing different genomes have different coverage, which makes Mabs useless.
-6. Can Mabs be used to assemble haploid genomes, for example bacterial?<br>
+7. Can Mabs be used to assemble haploid genomes, for example bacterial?<br>
 Yes. Though, I don't expect Mabs to be much better than Hifiasm and Flye for haploid genomes since haploid genome assemblies cannot have haplotypic duplications.
-7. Can Mabs-hifiasm perform a trio binning assembly like Hifiasm?<br>
+8. Can Mabs-hifiasm perform a trio binning assembly like Hifiasm?<br>
 Yes. You'll need to make "pat.yak" and "mat.yak" files as described in the readme of Hifiasm (https://github.com/chhylp123/hifiasm) and then provide them to Mabs via "--additional_hifiasm_parameters [-1 pat.yak -2 mat.yak]".
-8. Should additional programs for haplotypic duplications removal (such as Purge_dups) be applied to assemblies made by Mabs?<br>
+9. Should additional programs for haplotypic duplications removal (such as Purge_dups) be applied to assemblies made by Mabs?<br>
 In my experience, you can improve assemblies made by Mabs-flye by Purge_dups. However, in my experience, Purge_dups has detrimendal effect on assemblies made by Mabs-hifiasm. Still, you can try and see for yourself.
-9. The option "--download_busco_dataset" fails to download a BUSCO dataset. What should I do?<br>
+10. The option "--download_busco_dataset" fails to download a BUSCO dataset. What should I do?<br>
 This can happen if http://mikeshelk.site and, consequently, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible for some reason. To deal with this problem, manually download a file from http://busco-data.ezlab.org/v5/data/lineages/ and provide it to Mabs via the option "--local_busco_dataset".
-10. What does "Mabs" mean?<br>
+11. What does "Mabs" mean?<br>
 Funny to say, but "Mabs" means "Miniasm-based Assembler which maximizes Busco Score". That's because:<br>
 a) Mabs 1 was based on Miniasm instead of Hifiasm and Flye.<br>
 Miniasm takes as input a set of read overlaps produced by a program like Minimap2. Provided a file with overlaps, Miniasm performs assembly very quickly. The prominent speed of Miniasm allows exploring the parameter space more thoroughly than when using Hifiasm or Flye, which are 1-2 orders of magnitude slower. However, I later realized that the algorithm of Miniasm is inferior to the algorithms of Hifiasm and Flye, and even a more thorough exploration of a parameter space usually doesn't make Miniasm assemblies better than assemblies of Hifiasm and Flye. Therefore, I created Mabs 2 that uses Hifiasm and Flye. Mabs 1 worked in a 4-dimensional parameter space (optimized 4 different parameters of Miniasm), while Mabs 2 works in a 1-dimensional parameter space.<br><br>
 b) "Busco Score" is because very early versions of Mabs simply maximized BUSCO's "S" (the number of single-copy genes). However, I quickly realized that maximization of S may lead to collapsing of close paralogs, because it transfers them from the "multicopy" category to the "single-copy" category, thus increasing S. To deal with this problem, I started to classify multicopy genes into true multicopy (TM) and false multicopy (FM), and devised AG as a target for maximization, which is a sum of S and TM.
-11. How to cite Mabs?<br>
+12. How to cite Mabs?<br>
 Cite the preprint [https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2](https://www.biorxiv.org/content/10.1101/2022.12.19.521016v2).<br>
 In addition, if you used Mabs-hifiasm you may cite the article about Hifiasm ([https://pubmed.ncbi.nlm.nih.gov/33526886/](https://pubmed.ncbi.nlm.nih.gov/33526886/)) and if you used Mabs-flye you may cite the article about Flye ([https://pubmed.ncbi.nlm.nih.gov/30936562/](https://pubmed.ncbi.nlm.nih.gov/30936562/)) since Mabs is heavily based on these programs.
 
