@@ -1,4 +1,4 @@
-**Mabs** is a genome assembly tool that optimizes parameters of genome assemblers Hifiasm and Flye.<br><br>
+**Mabs** is a genome assembly tool which optimizes parameters of genome assemblers Hifiasm and Flye.<br><br>
 The core idea of Mabs is to optimize parameters of a genome assembler to make an assembly where **protein-coding genes** are assembled more accurately than when the assembler is run with its default parameters.<br><br>
 Briefly, Mabs works as follows:
 1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses a couple of tricks to accelerate the assembly process.
