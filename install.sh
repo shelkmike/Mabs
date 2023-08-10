@@ -69,7 +69,6 @@ cd ./Additional/HMMER
 chmod 755 ./configure
 ./configure
 make
-make check
 cd ../..
 
 #MetaEuk is pre-compiled, I just change permissions. The pre-compiled version is for SSE4.1. Actually, there are MetaEuk versions for newer CPUs, but since MetaEuk is not a time-limiting step of Mabs, I don't provide them.
@@ -95,15 +94,6 @@ cd ../..
 
 #Proovframe is written in Perl, it does not require to be compiled. I just change permissions. The source code of Proovframe was slightly modified by me — mostly for Proovframe to be able to find DIAMOND provided with Mabs.
 chmod 755 ./Additional/Proovframe/bin/*
-
-#Upgrading pip to the latest version. This is necessary because the installation of Plotnine (see below) may fail with very old versions of pip.
-python3 -m pip install pip --user --upgrade --no-warn-script-location
-
-#Installing the Python module Pandas.
-python3 -m pip install --user --no-warn-script-location Pandas
-
-#Installing the Python module Plotnine. Mabs may not work with old (approximately prior to 2019) versions of Plotnine, thus Plotnine is upgraded to the latest version.
-python3 -m pip install --upgrade --user --no-warn-script-location Plotnine
 
 #Making mabs-hifiasm.py, mabs-flye.py and calculate_AG.py executable
 chmod 755 mabs-hifiasm.py mabs-flye.py calculate_AG.py

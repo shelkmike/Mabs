@@ -19,6 +19,7 @@ Nested data structures are denoted by several letters. For example, dl_ are dict
 import sys
 import os
 import re
+import time
 import datetime
 import urllib.request
 import statistics
@@ -88,7 +89,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.19" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.24" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
@@ -208,7 +209,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
 		try:
 			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
 			
@@ -219,7 +220,28 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
 
 		except:
-			l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
+			time.sleep(5)
+			try:
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
+				try:
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+				except:
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+
+			except:
+				time.sleep(5)
+				try:
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
+					try:
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+
+					except:
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+				
+				except:
+					l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
 	
 	#если пользователь использовал --local_busco_dataset
 	o_regular_expression_results = re.search(r" --local_busco_dataset (\S+)", s_command_line_reduced)
@@ -332,13 +354,13 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 	################################
 	#Со входными параметрами разобрался. Теперь, собственно, делаю работу.
 
-	f_logs = open(s_path_to_the_output_folder + "/logs.txt","w",buffering=1)
+	f_log = open(s_path_to_the_output_folder + "/log.txt","w",buffering=1)
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("Started calculate_AG\n\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("Started calculate_AG\n\n")
 
-	f_logs.write("You have run calculate_AG of version " + s_version_of_calculate_AG + " with the following command: " + s_command_line + "\n\n")
+	f_log.write("You have run calculate_AG of version " + s_version_of_calculate_AG + " with the following command: " + s_command_line + "\n\n")
 
 	#сделаю специальный файл, в который в конце будет записана только строка вроде "AG is 1023".
 	f_AG_calculation_results = open(s_path_to_the_output_folder + "/AG.txt", "w")
@@ -353,7 +375,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name
 	
 	#Оставляю из базы BUSCO только нужное количество (s_number_of_busco_orthogroups_to_use) ортогрупп — тех, которые имеют наиболее консервативные последовательности. Если пользователь указал использовать все ортогруппы, то calculate_AG использует все. Если пользователь указал больше ортогрупп, чем есть в этом наборе BUSCO, то calculate_AG использует все и пишет Warning в основной файл с логами.
-	mabs_function_preprocess_busco_dataset.function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_of_busco_orthogroups_to_use, s_path_to_the_output_folder, f_logs)
+	mabs_function_preprocess_busco_dataset.function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_of_busco_orthogroups_to_use, s_path_to_the_output_folder, f_log)
 	
 	s_path_to_a_BUSCO_folder = s_path_to_the_output_folder + "/BUSCO_dataset_to_use/"
 
@@ -366,7 +388,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 	#если файл с контигами пустой, то сразу останавливаю выполнение calculate_AG, считая что AG=0. Иначе Metaeuk выдаст ошибку (если я правильно помню).
 	n_size_of_the_file_with_contigs = os.stat(s_path_to_the_assembly).st_size
 	if n_size_of_the_file_with_contigs == 0:
-		f_logs.write("AG is 0")
+		f_log.write("AG is 0")
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
@@ -425,7 +447,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 
 	#если MetaEuk вообще не выдал результатов, то считаю, что AG=0.
 	if not os.path.exists(s_path_to_the_output_folder + "/MetaEuk_results.fas"):
-		f_logs.write("AG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
+		f_log.write("AG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
@@ -436,7 +458,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		s_path_to_the_file_with_BUSCO_scores_cutoff = s_path_to_a_BUSCO_folder + "/scores_cutoff"
 		s_path_to_the_file_with_BUSCO_lengths_cutoff = s_path_to_a_BUSCO_folder + "/lengths_cutoff"
 
-		#f_logs = open("logs.txt", "w", buffering = 1)
+		#f_log = open("log.txt", "w", buffering = 1)
 
 		#делаю словарь, в котором ключ это название ортогруппы, вроде 54443at71240, а значение это bit score cutoff, вроде 302.75.
 		d_orthogroup_title_to_bit_score_cutoff = {}
@@ -583,7 +605,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 					n_first_exon_coordinate += 1 #прибавляю единицу, потому что Metaeuk выдаёт координаты zero-based.
 										
 					#удаляю упоминание об этом экзоне из строки, чтобы можно было начать рассматривать новый.
-					#f_logs.write("analyzed exon " + o_regular_expression_results_2.group(0) + "\n")
+					#f_log.write("analyzed exon " + o_regular_expression_results_2.group(0) + "\n")
 					s_exon_information_with_masked_metacharacters = re.escape(o_regular_expression_results_2.group(0)) #s_exon_information_with_masked_metacharacters это как o_regular_expression_results_2.group(0) , но все метасимволы замаскированы. Нужно, чтобы правильно прошло удаление этой подстроки из s_string_with_exons с помощью re.sub
 					s_string_with_exons = re.sub(s_exon_information_with_masked_metacharacters, "", s_string_with_exons)
 		
@@ -714,77 +736,81 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 				s_orthogroup_title = l_line_split[3]
 				n_bit_score = float(l_line_split[7])
 				
-				if s_orthogroup_title not in dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file:
-					dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file[s_orthogroup_title] = []
+				#Иногда бывает такое, что ген, найденный MetaEuk для одной ортогруппы BUSCO, имеет также матчи к марковским профилями других ортогрупп. Благодаря следующей строке я учитываю только матчи к профилю той же ортогруппы, по белку которой этот ген был найден.
+		
+				if re.search(r"^" + s_orthogroup_title, s_target_name):
 				
-				if s_target_name not in dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file[s_orthogroup_title]:
-					dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file[s_orthogroup_title].append(s_target_name)
+					if s_orthogroup_title not in dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file:
+						dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file[s_orthogroup_title] = []
 					
-					if n_bit_score >= d_orthogroup_title_to_bit_score_cutoff[s_orthogroup_title]:
-						n_z_value = (n_target_length - d_orthogroup_title_to_the_average_BUSCO_protein_length[s_orthogroup_title]) / d_orthogroup_title_to_the_standard_deviation_of_BUSCO_protein_lengths[s_orthogroup_title]
+					if s_target_name not in dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file[s_orthogroup_title]:
+						dl_orthogroup_title_to_the_list_of_targets_I_have_already_seen_in_this_file[s_orthogroup_title].append(s_target_name)
 						
-						if n_z_value >= -2:													
-							o_regular_expression_results = re.search(r"^(.*?)\|([^\|]+)\|(\+|\-)\|.*?\|.*?\|.*?\|(\d+)\|(\d+)\|(.+)", s_target_name)
+						if n_bit_score >= d_orthogroup_title_to_bit_score_cutoff[s_orthogroup_title]:
+							n_z_value = (n_target_length - d_orthogroup_title_to_the_average_BUSCO_protein_length[s_orthogroup_title]) / d_orthogroup_title_to_the_standard_deviation_of_BUSCO_protein_lengths[s_orthogroup_title]
+							
+							if n_z_value >= -2:													
+								o_regular_expression_results = re.search(r"^(.*?)\|([^\|]+)\|(\+|\-)\|.*?\|.*?\|.*?\|(\d+)\|(\d+)\|(.+)", s_target_name)
 
-							if o_regular_expression_results:
-								s_orthogroup_title = o_regular_expression_results.group(1)
-								s_contig_title = o_regular_expression_results.group(2)
-								s_chain = o_regular_expression_results.group(3) #цепь, на которой лежит ген. "+" или "-".
-								n_leftmost_coordinate_of_the_gene = int(o_regular_expression_results.group(4)) + 1 #прибавляю единицу, потому что Metaeuk выдаёт координаты zero-based.
-								n_rightmost_coordinate_of_the_gene = int(o_regular_expression_results.group(5))
-								s_string_with_exons = o_regular_expression_results.group(6)
-								
-								s_gene_description = s_contig_title + ":" + str(n_leftmost_coordinate_of_the_gene) + "-" + str(n_rightmost_coordinate_of_the_gene)
-								
-								if s_orthogroup_title not in dl_orthogroup_title_to_the_list_of_its_genes:
-									dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title] = []
-								dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title].append(s_gene_description)
-								
-								#f_logs.write("Started to analyze the coverage in exons of " + s_gene_description + "\n")
-								
-								if s_gene_description not in dl_gene_description_to_the_list_of_coverages_in_its_exons:
-									dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description] = []
-								
-								#иду по всем координатам экзонов. Координаты экзона содержатся в подстроке вида 20872[20872]:20765[20765]:108[108]
-								while re.search(r"\d+\[(\d+)\]\:\d+\[(\d+)\]\:\d+\[\d+\]", s_string_with_exons):
-									o_regular_expression_results_2 = re.search(r"\d+\[(\d+)\]\:\d+\[(\d+)\]\:\d+\[\d+\]", s_string_with_exons)
-									n_first_exon_coordinate = int(o_regular_expression_results_2.group(1))
-									n_second_exon_coordinate = int(o_regular_expression_results_2.group(2))
+								if o_regular_expression_results:
+									s_orthogroup_title = o_regular_expression_results.group(1)
+									s_contig_title = o_regular_expression_results.group(2)
+									s_chain = o_regular_expression_results.group(3) #цепь, на которой лежит ген. "+" или "-".
+									n_leftmost_coordinate_of_the_gene = int(o_regular_expression_results.group(4)) + 1 #прибавляю единицу, потому что Metaeuk выдаёт координаты zero-based.
+									n_rightmost_coordinate_of_the_gene = int(o_regular_expression_results.group(5))
+									s_string_with_exons = o_regular_expression_results.group(6)
 									
-									#если ген обратно-комплементарный, то первой координатой была записана бОльшая. Делаю первой координатой меньшую.
-									if n_first_exon_coordinate > n_second_exon_coordinate:
-										n_temp = n_second_exon_coordinate
-										n_second_exon_coordinate = n_first_exon_coordinate
-										n_first_exon_coordinate = n_temp
+									s_gene_description = s_contig_title + ":" + str(n_leftmost_coordinate_of_the_gene) + "-" + str(n_rightmost_coordinate_of_the_gene)
 									
-									n_first_exon_coordinate += 1 #прибавляю единицу, потому что Metaeuk выдаёт координаты zero-based.
+									if s_orthogroup_title not in dl_orthogroup_title_to_the_list_of_its_genes:
+										dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title] = []
+									dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title].append(s_gene_description)
 									
-									l_coverages_in_this_exon = [] #список покрытий в этом экзоне
+									#f_log.write("Started to analyze the coverage in exons of " + s_gene_description + "\n")
 									
-									for n_position in range(n_first_exon_coordinate, n_second_exon_coordinate + 1):
+									if s_gene_description not in dl_gene_description_to_the_list_of_coverages_in_its_exons:
+										dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description] = []
+									
+									#иду по всем координатам экзонов. Координаты экзона содержатся в подстроке вида 20872[20872]:20765[20765]:108[108]
+									while re.search(r"\d+\[(\d+)\]\:\d+\[(\d+)\]\:\d+\[\d+\]", s_string_with_exons):
+										o_regular_expression_results_2 = re.search(r"\d+\[(\d+)\]\:\d+\[(\d+)\]\:\d+\[\d+\]", s_string_with_exons)
+										n_first_exon_coordinate = int(o_regular_expression_results_2.group(1))
+										n_second_exon_coordinate = int(o_regular_expression_results_2.group(2))
 										
-										#проверяю, нет ли такого, что в этом контиге не было вообще ни одной покрытой позиции. Тогда dd_contig_title_and_position_to_coverage будет неинициализирован для s_contig_title. В таком случае я считаю покрытие в этой позиции равным нулю.
-										if s_contig_title not in dd_contig_title_and_position_to_coverage:
-											n_coverage = 0
-										else:
-											#поскольку в двойной словарь dd_contig_title_and_position_to_coverage я записывал покрытие только тех позиций, покрытие которых было ненулевым, то сейчас нужно проверить, есть ли эта позиция в этом двойном словаре.
-											if n_position in dd_contig_title_and_position_to_coverage[s_contig_title]:
-												n_coverage = dd_contig_title_and_position_to_coverage[s_contig_title][n_position]
-											else:
-												n_coverage = 0
+										#если ген обратно-комплементарный, то первой координатой была записана бОльшая. Делаю первой координатой меньшую.
+										if n_first_exon_coordinate > n_second_exon_coordinate:
+											n_temp = n_second_exon_coordinate
+											n_second_exon_coordinate = n_first_exon_coordinate
+											n_first_exon_coordinate = n_temp
+										
+										n_first_exon_coordinate += 1 #прибавляю единицу, потому что Metaeuk выдаёт координаты zero-based.
+										
+										l_coverages_in_this_exon = [] #список покрытий в этом экзоне
+										
+										for n_position in range(n_first_exon_coordinate, n_second_exon_coordinate + 1):
 											
-										l_coverages_in_this_exon.append(n_coverage)
-										
-									#добавляю список покрытий этого экзона к словарю списков, который содержит списки покрытий для каждого гена
-									dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description] += l_coverages_in_this_exon									
-									#удаляю упоминание об этом экзоне из строки, чтобы можно было начать рассматривать новый.
-									#f_logs.write("analyzed exon " + o_regular_expression_results_2.group(0) + "\n")
-									s_exon_information_with_masked_metacharacters = re.escape(o_regular_expression_results_2.group(0)) #s_exon_information_with_masked_metacharacters это как o_regular_expression_results_2.group(0) , но все метасимволы замаскированы. Нужно, чтобы правильно прошло удаление этой подстроки из s_string_with_exons с помощью re.sub
-									s_string_with_exons = re.sub(s_exon_information_with_masked_metacharacters, "", s_string_with_exons)
-						
-						#если ген присутствует, но фрагментирован, то я информацию о нём никак не использую.
-						else:
-							pass
+											#проверяю, нет ли такого, что в этом контиге не было вообще ни одной покрытой позиции. Тогда dd_contig_title_and_position_to_coverage будет неинициализирован для s_contig_title. В таком случае я считаю покрытие в этой позиции равным нулю.
+											if s_contig_title not in dd_contig_title_and_position_to_coverage:
+												n_coverage = 0
+											else:
+												#поскольку в двойной словарь dd_contig_title_and_position_to_coverage я записывал покрытие только тех позиций, покрытие которых было ненулевым, то сейчас нужно проверить, есть ли эта позиция в этом двойном словаре.
+												if n_position in dd_contig_title_and_position_to_coverage[s_contig_title]:
+													n_coverage = dd_contig_title_and_position_to_coverage[s_contig_title][n_position]
+												else:
+													n_coverage = 0
+												
+											l_coverages_in_this_exon.append(n_coverage)
+											
+										#добавляю список покрытий этого экзона к словарю списков, который содержит списки покрытий для каждого гена
+										dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description] += l_coverages_in_this_exon									
+										#удаляю упоминание об этом экзоне из строки, чтобы можно было начать рассматривать новый.
+										#f_log.write("analyzed exon " + o_regular_expression_results_2.group(0) + "\n")
+										s_exon_information_with_masked_metacharacters = re.escape(o_regular_expression_results_2.group(0)) #s_exon_information_with_masked_metacharacters это как o_regular_expression_results_2.group(0) , но все метасимволы замаскированы. Нужно, чтобы правильно прошло удаление этой подстроки из s_string_with_exons с помощью re.sub
+										s_string_with_exons = re.sub(s_exon_information_with_masked_metacharacters, "", s_string_with_exons)
+							
+							#если ген присутствует, но фрагментирован, то я информацию о нём никак не использую.
+							else:
+								pass
 
 		f_infile.close()
 		
@@ -814,7 +840,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 					
 					l_coverages_in_exons_of_genes += dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description]
 					
-					f_logs.write("For the gene " + s_gene_description + " from a single-copy orthogroup " + s_orthogroup_title + ", the median coverage is " + str(d_gene_description_to_the_median_coverage_in_its_exons[s_gene_description]) + ". It was calculated using " + str(len(dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description])) + " positions.\n")
+					f_log.write("For the gene " + s_gene_description + " from a single-copy orthogroup " + s_orthogroup_title + ", the median coverage is " + str(d_gene_description_to_the_median_coverage_in_its_exons[s_gene_description]) + ". It was calculated using " + str(len(dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description])) + " positions.\n")
 				
 				#если для ортогруппы найдено больше одного гена.
 				if len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title]) > 1:
@@ -823,16 +849,16 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 						
 						l_coverages_in_exons_of_genes += dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description]
 						
-						f_logs.write("For the gene " + s_gene_description + " from a multicopy orthogroup " + s_orthogroup_title + ", the median coverage is " + str(d_gene_description_to_the_median_coverage_in_its_exons[s_gene_description]) + ". It was calculated using " + str(len(dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description])) + " positions.\n")
+						f_log.write("For the gene " + s_gene_description + " from a multicopy orthogroup " + s_orthogroup_title + ", the median coverage is " + str(d_gene_description_to_the_median_coverage_in_its_exons[s_gene_description]) + ". It was calculated using " + str(len(dl_gene_description_to_the_list_of_coverages_in_its_exons[s_gene_description])) + " positions.\n")
 			
 			#если ни одного однокопийного гена найдено не было (крайне маловероятно, но, в принципе, такое может быть), но многокопийные гены были, то, для простоты, считаю медианным покрытием однокопийных генов медианное покрытие по всем многокопийным генам, делённое пополам.
 			if len(l_coverages_in_exons_of_single_copy_genes) == 0:
 				n_median_coverage_of_exons_of_single_copy_genes = statistics.median(l_coverages_in_exons_of_genes) / 2
-				f_logs.write("\nWarning! No single-copy orthogroups were found. Hence, as the approximate coverage of genes in single-copy orthogroups I take half the median coverage by positions of genes from multicopy, which is " + str(n_median_coverage_of_exons_of_single_copy_genes) + "\n\n")
+				f_log.write("\nWarning! No single-copy orthogroups were found. Hence, as the approximate coverage of genes in single-copy orthogroups I take half the median coverage by positions of genes from multicopy, which is " + str(n_median_coverage_of_exons_of_single_copy_genes) + "\n\n")
 			#если хотя бы один однокопийный ген был.
 			else:
 				n_median_coverage_of_exons_of_single_copy_genes = statistics.median(l_coverages_in_exons_of_single_copy_genes)
-				f_logs.write("\nThe median coverage in exons of genes from single-copy BUSCO orthogroups is " + str(n_median_coverage_of_exons_of_single_copy_genes) + ". It was calculated using " + str(len(l_coverages_in_exons_of_single_copy_genes)) + " positions.\n\n")
+				f_log.write("\nThe median coverage in exons of genes from single-copy BUSCO orthogroups is " + str(n_median_coverage_of_exons_of_single_copy_genes) + ". It was calculated using " + str(len(l_coverages_in_exons_of_single_copy_genes)) + " positions.\n\n")
 
 			#теперь иду по всем ортогруппам и для каждой многокопийной ортогруппы считаю среднее покрытие в ней. Если оно < 0.75*(медианное покрытие в однокопийных генах), то считаю, что это ложно многокопийных ортогруппа. А если >=0.75*(медианное покрытие в однокопийных генах), то считаю, что истинно многокопийная. Параллельно, считаю количество генов в истинно многокопийных ортогруппах и ложно многокопийных ортогруппах.
 			n_number_of_true_multicopy_genes = 0
@@ -846,33 +872,33 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 						n_mean_coverage_of_genes_in_this_orthogroup += d_gene_description_to_the_median_coverage_in_its_exons[s_gene_description] / len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 					
 					if n_mean_coverage_of_genes_in_this_orthogroup < 0.75 * n_median_coverage_of_exons_of_single_copy_genes:
-						f_logs.write("The mean coverage of genes from a multicopy BUSCO orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is smaller than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", hence this orthogroup is considered a false multicopy.\n")
+						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is smaller than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", hence this orthogroup is considered a false multicopy.\n")
 					
 						n_number_of_false_multicopy_genes += len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 						
 					#в принципе, это условие и следующее можно объединить в одно (">="). Но для удобства чтения логов я разделю случай ">" и случай "=". Впрочем, думаю, случай "=" будет встречаться крайне редко.
 					elif n_mean_coverage_of_genes_in_this_orthogroup == 0.75 * n_median_coverage_of_exons_of_single_copy_genes:
-						f_logs.write("The mean coverage of genes from a multicopy BUSCO orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is equal to 0.75 * (median_coverage_in_exons_of_single_copy_genes), hence this orthogroup is considered a true multicopy.\n")
+						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is equal to 0.75 * (median_coverage_in_exons_of_single_copy_genes), hence this orthogroup is considered a true multicopy.\n")
 						
 						n_number_of_true_multicopy_genes += len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 					
 					elif n_mean_coverage_of_genes_in_this_orthogroup > 0.75 * n_median_coverage_of_exons_of_single_copy_genes:
-						f_logs.write("The mean coverage of genes from a multicopy BUSCO orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is larger than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", hence this orthogroup is considered a true multicopy.\n")
+						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is larger than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", hence this orthogroup is considered a true multicopy.\n")
 						
 						n_number_of_true_multicopy_genes += len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 			
 			n_AG = n_number_of_single_copy_genes_found_in_the_assembly + n_number_of_true_multicopy_genes
 	else:
-		f_logs.write("AG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
+		f_log.write("AG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
-	f_logs.write("AG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups is " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
+	f_log.write("AG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups is " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
 	f_AG_calculation_results.write("AG is " + str(n_AG))
 	
-	f_logs.close
+	f_log.close
 	
 	#Строю синаплот с покрытием генов.
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/plot_gene_coverage_distribution.py " + s_path_to_the_output_folder + "/logs.txt 2.5 auto " + s_path_to_the_output_folder + "/gene_coverage_distribution")
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/plot_gene_coverage_distribution.py " + s_path_to_the_output_folder + "/log.txt 2.5 auto " + s_path_to_the_output_folder + "/gene_coverage_distribution")
 
 

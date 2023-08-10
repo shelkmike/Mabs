@@ -19,6 +19,7 @@ Nested data structures are denoted by several letters. For example, dl_ are dict
 import sys
 import os
 import re
+import time
 import datetime
 import urllib.request
 #import ssl
@@ -67,6 +68,9 @@ if __name__ == '__main__':
 		
 	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/get_single_end_reads_from_DIAMOND_results.py"):
 		l_unavailable_files_and_folders.append("The file get_single_end_reads_from_DIAMOND_results.py should be in the subfolder \"Additional\" of the folder where Mabs lies.")
+		
+	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_N50.py"):
+		l_unavailable_files_and_folders.append("The file calculate_N50.py should be in the subfolder \"Additional\" of the folder where Mabs lies.")
 	
 	if not os.path.isdir(s_path_to_the_folder_where_Mabs_lies + "/Test_datasets"):
 		l_unavailable_files_and_folders.append("The subfolder \"Test_datasets\" should be in the folder where Mabs lies.")
@@ -94,7 +98,7 @@ if __name__ == '__main__':
 	
 	s_additional_hifiasm_parameters = "" #дополнительные параметры Hifiasm.
 	
-	s_Mabs_version = "2.19"
+	s_Mabs_version = "2.24"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
@@ -169,7 +173,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 		
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
 		try:
 			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
 			#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
@@ -179,7 +183,27 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
 
 		except:
-			l_errors_in_command_line.append("Unfortunately, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible. To test Mabs-hifiasm, download the file http://busco-data.ezlab.org/v5/data/lineages/saccharomycetes_odb10.2020-08-05.tar.gz and run the following command:\nmabs-hifiasm.py --pacbio_hifi_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/pacbio_hifi_test_reads.fastq.gz --local_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz")
+			time.sleep(5)
+			try:
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
+				try:
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+				except:
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+
+			except:
+				time.sleep(5)
+				try:
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
+					try:
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					except:
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+
+				except:
+					l_errors_in_command_line.append("Unfortunately, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible. To test Mabs-hifiasm, download the file http://busco-data.ezlab.org/v5/data/lineages/saccharomycetes_odb10.2020-08-05.tar.gz and run the following command:\nmabs-hifiasm.py --pacbio_hifi_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/pacbio_hifi_test_reads.fastq.gz --local_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz")
 		
 		
 		if len(l_errors_in_command_line) != 0:
@@ -328,10 +352,9 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			
 			s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-			#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+			#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
 			try:
 				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
-				
 				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 				try:
 					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
@@ -339,7 +362,27 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
 
 			except:
-				l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
+				time.sleep(5)
+				try:
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
+					try:
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					except:
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+
+				except:
+					time.sleep(5)
+					try:
+						s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+						#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
+						try:
+							urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+						except:
+							l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+
+					except:
+						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
 		
 		#если пользователь использовал --local_busco_dataset
 		o_regular_expression_results = re.search(r" --local_busco_dataset (\S+)", s_command_line_reduced)
@@ -460,13 +503,13 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			
 			sys.exit()
 
-	f_logs = open(s_path_to_the_output_folder + "/mabs_logs.txt","w",buffering=1) #f_logs это общий файл с логами Mabs-hifiasm, в отличие от трёх дополнительных файлов с логами, которые ведут три отдельных экземпляра Mabs-hifiasm. buffering=1 означает, что буферизация идёт только на уровне строк.
+	f_log = open(s_path_to_the_output_folder + "/mabs_log.txt","w",buffering=1) #f_log это общий файл с логами Mabs-hifiasm, в отличие от трёх дополнительных файлов с логами, которые ведут три отдельных экземпляра Mabs-hifiasm. buffering=1 означает, что буферизация идёт только на уровне строк.
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("Started Mabs-hifiasm\n\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("Started Mabs-hifiasm\n\n")
 
-	f_logs.write("You have run Mabs-hifiasm of version " + s_Mabs_version + " with the following command: " + s_command_line + "\n\n")
+	f_log.write("You have run Mabs-hifiasm of version " + s_Mabs_version + " with the following command: " + s_command_line + "\n\n")
 	
 	#Это строка, в которой указаны пути ко всем ридам, которые нужно давать Modified_hifiasm, а также, если пользователь указал размер генома, то и размер генома. Например, "--hg-size 1g --h1 hic_reads_R1.fastq --hi2 hic_reads_R1.fastq --ul nanopore_reads.fastq hifi_reads.fastq", если был указан размер генома, и были указаны и риды Hi-C, и ультрадлинные риды Нанопора, и риды HiFi. Или, например, просто "hifi_reads.fastq" если размер генома не был указан, и были только риды HiFi. Эта строка нужна, чтобы Mabs-hifiasm было проще передавать аргументы командной строки Modified_hifiasm. Иначе, передача аргументов несколько осложнена, потому что в зависимости от того, какие опции дал Mabs-hifiasm пользователь, программа Modified_hifiasm нужно передавать разное количество аргументов.
 	s_command_line_arguments_with_reads_for_Modified_hifiasm = s_path_to_pacbio_hifi_reads
@@ -486,9 +529,9 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	
 	#если пользователь делает сборку тестового набора ридов Mabs-hifiasm, то нужно написать подробности этого тестового набора.
 	if (len(sys.argv) == 2) and re.search(r"\s\-\-run_test", s_command_line):
-		f_logs.write("As a test, Mabs-hifiasm will assemble the first chromosome of Saccharomyces cerevisiae, which is approximately 200 kbp long, using 40x PacBio HiFi reads.\n\n")
-		f_logs.write("The command \"mabs-hifiasm.py --run_test\" is equivalent to the command \"mabs-hifiasm.py --pacbio_hifi_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_hifi_reads__test_set__for_diploid_assembly.fastq.gz --download_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz\"\n")
-		f_logs.write("If after Mabs-hifiasm finishes you see a file ./Mabs_results/The_best_assembly/assembly.fasta which has a size of approximately 200 kilobytes, then the test succeeded.\n\n")
+		f_log.write("As a test, Mabs-hifiasm will assemble the first chromosome of Saccharomyces cerevisiae, which is approximately 200 kbp long, using 40x PacBio HiFi reads.\n\n")
+		f_log.write("The command \"mabs-hifiasm.py --run_test\" is equivalent to the command \"mabs-hifiasm.py --pacbio_hifi_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_hifi_reads__test_set__for_diploid_assembly.fastq.gz --download_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz\"\n")
+		f_log.write("If after Mabs-hifiasm finishes you see a file ./Mabs_results/The_best_assembly/assembly.fasta which has a size of approximately 200 kilobytes, then the test succeeded.\n\n")
 	
 	#если пользователь сказал скачать файл с базой BUSCO или сам дал файл (но не папку), то разархивирую файл и меняю значение переменной s_path_to_a_local_busco_dataset с пути к файлу на путь к папке.
 	if os.path.isfile(s_path_to_a_local_busco_dataset):
@@ -500,7 +543,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name
 
 	#Оставляю из базы BUSCO только нужное количество (s_number_of_busco_orthogroups_to_use) ортогрупп — тех, которые имеют наиболее консервативные последовательности. Если пользователь указал использовать все ортогруппы, то Mabs-hifiasm использует все. Если пользователь указал больше ортогрупп, чем есть в этом наборе BUSCO, то Mabs-hifiasm использует все и пишет Warning в основной файл с логами.
-	mabs_function_preprocess_busco_dataset.function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_of_busco_orthogroups_to_use, s_path_to_the_output_folder, f_logs)
+	mabs_function_preprocess_busco_dataset.function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_of_busco_orthogroups_to_use, s_path_to_the_output_folder, f_log)
 
 	#делаю ссылку на файл "ancestral", давая ему расширение .fasta. Затем делаю базу данных DIAMOND.
 	#с помощью os.path.abspath() я получают абсолютный путь. Если он относительный, то это может создать проблемы в работоспособности мягкой ссылки.
@@ -523,47 +566,55 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	else:
 		s_output_extension = "fasta"
 	
+	#Проверяю, что DIAMOND выдал файл. Файла может не быть, если у DIAMOND были какие-то проблемы при запуске (см. https://github.com/shelkmike/Mabs/issues/3)
+	if not os.path.exists(s_path_to_the_output_folder + "/diamond_results_for_alignment_of_pacbio_hifi_reads_to_busco_proteins.txt"):
+		print("Mabs-hifiasm has stopped because there was an error during DIAMOND execution.")
+		sys.exit()
+	
 	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/get_single_end_reads_from_DIAMOND_results.py " + s_path_to_pacbio_hifi_reads + " " + s_path_to_the_output_folder + "/diamond_results_for_alignment_of_pacbio_hifi_reads_to_busco_proteins.txt " + s_path_to_the_output_folder + "/pacbio_hifi_reads_that_have_matches_to_busco_proteins." + s_output_extension)
 	
 	s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes = s_path_to_the_output_folder + "/pacbio_hifi_reads_that_have_matches_to_busco_proteins." + s_output_extension
 
-	#Теперь, собственно, начинаю проверку 10 точек методом золотого сечения. Параметр, который я оптимизирую, это параметр "-s" Hifiasm. Стартовый интервал -s: [0;1]. n_point_1 это самая левая в данный момент точка (то есть, с наименьшим -s), n_point_4 это самая правая (то есть, с наибольшим -s), а n_point_2 и n_point_3 это две промежуточные, положение которых, собственно, и определяется золотым сечением.
-	n_point_1 = 0 #Нижняя граница пробуемых -s.
-	n_point_4 = 1 #Верхняя граница пробуемых -s.
-	n_point_2 = round(n_point_1 + ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_point_4 - n_point_1), 3) #округлю до третьего знака после запятой, иначе у Питона иногда вылезают числа вроде 0.144200000001
-	n_point_3 = round(n_point_4 - ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_point_4 - n_point_1), 3)
+	#Теперь, собственно, начинаю проверку 10 точек методом золотого сечения. Параметр, который я оптимизирую, это параметр "-s" Hifiasm. Стартовый интервал -s: [0;1]. n_golden_section_point_1 это самая левая в данный момент точка (то есть, с наименьшим -s), n_golden_section_point_4 это самая правая (то есть, с наибольшим -s), а n_golden_section_point_2 и n_golden_section_point_3 это две промежуточные, положение которых, собственно, и определяется золотым сечением.
+	#ВАЖНО: возможно, в будущем нужно изменить терминологию. Потому что сейчас можно перепутать обозначения четырёх точек метода золотого сечения и те "точки", которые в n_number_of_the_point_under_analysis
+	n_golden_section_point_1 = 0 #Нижняя граница пробуемых -s.
+	n_golden_section_point_4 = 1 #Верхняя граница пробуемых -s.
+	n_golden_section_point_2 = round(n_golden_section_point_1 + ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_golden_section_point_4 - n_golden_section_point_1), 3) #округлю до третьего знака после запятой, иначе у Питона иногда вылезают числа вроде 0.144200000001
+	n_golden_section_point_3 = round(n_golden_section_point_4 - ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_golden_section_point_4 - n_golden_section_point_1), 3)
 
 	#Для 0 и 1 (двух крайних точек стартового интервала) я не делаю измерений, потому что метод золотого сечения этого не требует.
 	
 	#Это список, в который для каждого проверенного -s будет записан AG. Ключ это -s, а значение это AG.
 	d_s_to_AG = {} #Например, [0.362] = 762.
+	#Это список, в который для каждого проверенного -s будет записан N50. Ключ это -s, а значение это N50.
+	d_s_to_N50 = {} #Например, [0.362] = 12345678.
 	
 	#Анализирую вторую точку.
 	n_number_of_the_point_under_analysis = 1
-	n_s = n_point_2
+	n_s = n_golden_section_point_2
 
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
 	
 	
-	os.mkdir(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s))
+	os.mkdir(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis))
 	
 	#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
-	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
 	#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
 	#если пользователь не дал риды Hi-C
 	if (s_path_to_hic_short_reads_R1 == ""):
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
+		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.bp.p_ctg.gfa"
 	#если пользователь дал риды Hi-C.
 	if (s_path_to_hic_short_reads_R1 != ""):
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
+		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.hic.p_ctg.gfa"
 	
 	#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
 	f_infile = open(s_path_to_gfa_with_primary_contigs, "r")
-	f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta", "w")
+	f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta", "w")
 	for s_line in f_infile:
 		#S       ptg000001l      AGTTTACGTTGAACAACCTCCAGGGTTTGT...
 		o_regular_expression_results = re.search(r"^[sS]\s+(\S+)\s+(\S+)", s_line)
@@ -572,58 +623,65 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_infile.close()
 	f_outfile.close()
 	
-	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы из неё перемещать файлы с расширениями .bin и .utg в новую папку со сборкой. Их присутствие ускоряет сборку.
+	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы из неё перемещать файлы с расширениями .bin и .utg в новую папку со сборкой. Их присутствие ускоряет сборку.
 	
 	#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 
 	#Беру AG, посчитанный скриптом calculate_AG.py
-	if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt"):
-		f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt", "r")
+	if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
+		f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt", "r")
 		s_line_1 = f_infile.readline()
+		f_infile.close()
 		#AG is 487
 		o_regular_expression_results = re.search(r"AG is (\d+)", s_line_1)
-		n_AG_for_point_2 = int(o_regular_expression_results.group(1))
+		n_AG_for_golden_section_point_2 = int(o_regular_expression_results.group(1))
 	else:
-		f_logs.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
+		f_log.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
 		sys.exit()
 	
-	d_s_to_AG[n_s] = n_AG_for_point_2
+	d_s_to_AG[n_s] = n_AG_for_golden_section_point_2
+	
+	#Считаю N50
+	s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_N50.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_N50.py выдаёт N50.
+	s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+	n_N50_for_golden_section_point_2 = int(s_command_output)
+	d_s_to_N50[n_s] = n_N50_for_golden_section_point_2
 	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("AG for -s " + str(n_s) + " is " + str(n_AG_for_point_2) + "\n\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_2) + " and N50 = " + str(n_N50_for_golden_section_point_2) + "\n\n")
 
 	#Анализирую третью точку.
 	n_number_of_the_point_under_analysis += 1
-	n_s = n_point_3
+	n_s = n_golden_section_point_3
 
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
 	
-	os.mkdir(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s))
+	os.mkdir(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis))
 	
 	#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
 	
 	#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
-	os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
+	os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/")
 	
-	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
 	#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
 	#если пользователь не дал риды Hi-C
 	if (s_path_to_hic_short_reads_R1 == ""):
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
+		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.bp.p_ctg.gfa"
 	#если пользователь дал риды Hi-C.
 	if (s_path_to_hic_short_reads_R1 != ""):
-		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
+		s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.hic.p_ctg.gfa"
 	
 	#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
 	f_infile = open(s_path_to_gfa_with_primary_contigs, "r")
-	f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta", "w")
+	f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta", "w")
 	for s_line in f_infile:
 		#S       ptg000001l      AGTTTACGTTGAACAACCTCCAGGGTTTGT...
 		o_regular_expression_results = re.search(r"^[sS]\s+(\S+)\s+(\S+)", s_line)
@@ -632,73 +690,85 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_infile.close()
 	f_outfile.close()
 
-	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 	
 	#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 
 	#Беру AG, посчитанный скриптом calculate_AG.py
-	if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt"):
-		f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt", "r")
+	if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
+		f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt", "r")
 		s_line_1 = f_infile.readline()
+		f_infile.close()
 		#AG is 487
 		o_regular_expression_results = re.search(r"AG is (\d+)", s_line_1)
-		n_AG_for_point_3 = int(o_regular_expression_results.group(1))
+		n_AG_for_golden_section_point_3 = int(o_regular_expression_results.group(1))
 	else:
-		f_logs.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
+		f_log.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
 		sys.exit()
 	
-	d_s_to_AG[n_s] = n_AG_for_point_3
+	d_s_to_AG[n_s] = n_AG_for_golden_section_point_3
+	
+	#Считаю N50
+	s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_N50.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_N50.py выдаёт N50.
+	s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+	n_N50_for_golden_section_point_3 = int(s_command_output)
+	d_s_to_N50[n_s] = n_N50_for_golden_section_point_3
 	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("AG for -s " + str(n_s) + " is " + str(n_AG_for_point_3) + "\n\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_3) + " and N50 = " + str(n_N50_for_golden_section_point_3) + "\n\n")
 
 	#теперь последовательно выбираю остальные 8 точек методом золотого сечения и меряю AG для них.
 	while n_number_of_the_point_under_analysis < 10: #"<", а не "<=", потому что увеличение номера точки здесь делается в начале цикла.
 		n_number_of_the_point_under_analysis += 1
 		
-		#Смотрю, какая из двух центральных точек (вторая или третья) имеют меньшее значение AG. Если вторая имеет меньшее ли равное третьей, то выкидываю первую точку и сужаю интервал. Если третья имеет меньшее, чем вторая, то выкидываю четвёртую точку и сужаю интервал. При равных значениях выкидывыю правую. Правую выкидываю потому, что по моим впечатлениям оптимальный -s чаще бывает ближе к 0, чем к 1.
-		if n_AG_for_point_2 < n_AG_for_point_3:
-			n_point_1 = n_point_2
-			n_point_2 = n_point_3
-			#n_point_4 не меняется
-			n_point_3 = round((n_point_4 - ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_point_4 - n_point_1)), 3)
+		#Смотрю, какая из двух центральных точек (вторая или третья) имеют меньшее значение AG. Если вторая имеет меньшее, то выкидываю первую точку и сужаю интервал. Если третья имеет меньшее, чем вторая, то выкидываю четвёртую точку и сужаю интервал. При равных значениях AG делаю такое же сравнение, но для N50. Если и N50 равные, то выкидываю правую точку. Правую выкидываю потому, что по моим впечатлениям оптимальный -s чаще бывает ближе к 0, чем к 1.
+		if (n_AG_for_golden_section_point_2 < n_AG_for_golden_section_point_3) or ((n_AG_for_golden_section_point_2 == n_AG_for_golden_section_point_3) and (n_N50_for_golden_section_point_2 < n_N50_for_golden_section_point_3)):
+			n_golden_section_point_1 = n_golden_section_point_2
+			n_golden_section_point_2 = n_golden_section_point_3
+			#n_golden_section_point_4 не меняется
+			n_golden_section_point_3 = round((n_golden_section_point_4 - ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_golden_section_point_4 - n_golden_section_point_1)), 3)
 			
-			n_AG_for_point_1 = n_AG_for_point_2
-			n_AG_for_point_2 = n_AG_for_point_3
-			#n_AG_for_point_4 не меняется
-			n_AG_for_point_3 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
+			n_AG_for_golden_section_point_1 = n_AG_for_golden_section_point_2
+			n_N50_for_golden_section_point_1 = n_N50_for_golden_section_point_2
+			
+			n_AG_for_golden_section_point_2 = n_AG_for_golden_section_point_3
+			n_N50_for_golden_section_point_2 = n_N50_for_golden_section_point_3
+			
+			#n_AG_for_golden_section_point_4 и n_N50_for_golden_section_point_4 не меняется
+			n_AG_for_golden_section_point_3 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
+			n_N50_for_golden_section_point_3 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
 			
 			#Анализирую третью точку.
-			n_s = n_point_3
+			n_s = n_golden_section_point_3
 
 			o_current_time_and_date = datetime.datetime.now()
 			s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-			f_logs.write(s_current_time_and_date + "\n")
-			f_logs.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
+			f_log.write(s_current_time_and_date + "\n")
+			f_log.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
 			
-			os.mkdir(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s))
+			os.mkdir(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis))
 			
 			#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
 			
 			#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
+			os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/")
 			
-			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
 			#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
 			#если пользователь не дал риды Hi-C
 			if (s_path_to_hic_short_reads_R1 == ""):
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
+				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.bp.p_ctg.gfa"
 			#если пользователь дал риды Hi-C.
 			if (s_path_to_hic_short_reads_R1 != ""):
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
+				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.hic.p_ctg.gfa"
 			
 			#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
 			f_infile = open(s_path_to_gfa_with_primary_contigs, "r")
-			f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta", "w")
+			f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta", "w")
 			for s_line in f_infile:
 				#S       ptg000001l      AGTTTACGTTGAACAACCTCCAGGGTTTGT...
 				o_regular_expression_results = re.search(r"^[sS]\s+(\S+)\s+(\S+)", s_line)
@@ -707,68 +777,80 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			f_infile.close()
 			f_outfile.close()
 			
-			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 			
 			#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 
 			#Беру AG, посчитанный скриптом calculate_AG.py
-			if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt"):
-				f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt", "r")
+			if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
+				f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt", "r")
 				s_line_1 = f_infile.readline()
+				f_infile.close()
 				#AG is 487
 				o_regular_expression_results = re.search(r"AG is (\d+)", s_line_1)
-				n_AG_for_point_3 = int(o_regular_expression_results.group(1))
+				n_AG_for_golden_section_point_3 = int(o_regular_expression_results.group(1))
 			else:
-				f_logs.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
+				f_log.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
 				sys.exit()
 			
-			d_s_to_AG[n_s] = n_AG_for_point_3
+			d_s_to_AG[n_s] = n_AG_for_golden_section_point_3
+			
+			#Считаю N50
+			s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_N50.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_N50.py выдаёт N50.
+			s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+			n_N50_for_golden_section_point_3 = int(s_command_output)
+			d_s_to_N50[n_s] = n_N50_for_golden_section_point_3
 			
 			o_current_time_and_date = datetime.datetime.now()
 			s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-			f_logs.write(s_current_time_and_date + "\n")
-			f_logs.write("AG for -s " + str(n_s) + " is " + str(n_AG_for_point_3) + "\n\n")
+			f_log.write(s_current_time_and_date + "\n")
+			f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_3) + " and N50 = " + str(n_N50_for_golden_section_point_3) + "\n\n")
 			
-		elif n_AG_for_point_2 >= n_AG_for_point_3:
-			#n_point_1 не меняется
-			n_point_4 = n_point_3
-			n_point_3 = n_point_2
-			n_point_2 = round((n_point_1 + ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_point_4 - n_point_1)), 3)
+		elif (n_AG_for_golden_section_point_2 > n_AG_for_golden_section_point_3)  or ((n_AG_for_golden_section_point_2 == n_AG_for_golden_section_point_3) and (n_N50_for_golden_section_point_2 >= n_N50_for_golden_section_point_3)):
+			#n_golden_section_point_1 не меняется
+			n_golden_section_point_4 = n_golden_section_point_3
+			n_golden_section_point_3 = n_golden_section_point_2
+			n_golden_section_point_2 = round((n_golden_section_point_1 + ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_golden_section_point_4 - n_golden_section_point_1)), 3)
 			
-			#n_AG_for_point_1 не меняется
-			n_AG_for_point_4 = n_AG_for_point_3
-			n_AG_for_point_3 = n_AG_for_point_2
-			n_AG_for_point_2 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
+			#n_AG_for_golden_section_point_1 и n_N50_for_golden_section_point_1 не меняются
+			n_AG_for_golden_section_point_4 = n_AG_for_golden_section_point_3
+			n_N50_for_golden_section_point_4 = n_N50_for_golden_section_point_3
+			
+			n_AG_for_golden_section_point_3 = n_AG_for_golden_section_point_2
+			n_N50_for_golden_section_point_3 = n_N50_for_golden_section_point_2
+			
+			n_AG_for_golden_section_point_2 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
+			n_N50_for_golden_section_point_2 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
 			
 			#Анализирую вторую точку.
-			n_s = n_point_2
+			n_s = n_golden_section_point_2
 
 			o_current_time_and_date = datetime.datetime.now()
 			s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-			f_logs.write(s_current_time_and_date + "\n")
-			f_logs.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
+			f_log.write(s_current_time_and_date + "\n")
+			f_log.write("Mabs-hifiasm started to analyze point " + str(n_number_of_the_point_under_analysis) + " of 10. -s in this point is " + str(n_s) + "\n")
 			
-			os.mkdir(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s))
+			os.mkdir(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis))
 			
 			#Делаю сборку, после чего конвертирую файл p_ctg.gfa в FASTA, делая файл assembly.fasta .
 			
 			#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
-			os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/")
+			os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/")
 			
-			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s) + " -o " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly --only-primary --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
 			#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
 			#если пользователь не дал риды Hi-C
 			if (s_path_to_hic_short_reads_R1 == ""):
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.bp.p_ctg.gfa"
+				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.bp.p_ctg.gfa"
 			#если пользователь дал риды Hi-C.
 			if (s_path_to_hic_short_reads_R1 != ""):
-				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.hic.p_ctg.gfa"
+				s_path_to_gfa_with_primary_contigs = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.hic.p_ctg.gfa"
 			
 			#теперь из файла GFA с первичными контигами делаю файл FASTA с ними.
 			f_infile = open(s_path_to_gfa_with_primary_contigs, "r")
-			f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta", "w")
+			f_outfile = open(s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta", "w")
 			for s_line in f_infile:
 				#S       ptg000001l      AGTTTACGTTGAACAACCTCCAGGGTTTGT...
 				o_regular_expression_results = re.search(r"^[sS]\s+(\S+)\s+(\S+)", s_line)
@@ -778,48 +860,63 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			f_outfile.close()
 			
 			#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 			
-			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_-s_" + str(n_s) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
+			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 			
 			#Беру AG, посчитанный скриптом calculate_AG.py
-			if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt"):
-				f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_-s_" + str(n_s) + "/AG.txt", "r")
+			if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
+				f_infile = open(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt", "r")
 				s_line_1 = f_infile.readline()
+				f_infile.close()
 				#AG is 487
 				o_regular_expression_results = re.search(r"AG is (\d+)", s_line_1)
-				n_AG_for_point_2 = int(o_regular_expression_results.group(1))
+				n_AG_for_golden_section_point_2 = int(o_regular_expression_results.group(1))
 			else:
-				f_logs.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
+				f_log.write("Error. Couldn't calculate AG. See stderr and stdout for the reason why.")
 			
-			d_s_to_AG[n_s] = n_AG_for_point_2
+			d_s_to_AG[n_s] = n_AG_for_golden_section_point_2
+			
+			#Считаю N50
+			s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_N50.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_N50.py выдаёт N50.
+			s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+			n_N50_for_golden_section_point_2 = int(s_command_output)
+			d_s_to_N50[n_s] = n_N50_for_golden_section_point_2
 			
 			o_current_time_and_date = datetime.datetime.now()
 			s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-			f_logs.write(s_current_time_and_date + "\n")
-			f_logs.write("AG for -s " + str(n_s) + " is " + str(n_AG_for_point_2) + "\n\n")
+			f_log.write(s_current_time_and_date + "\n")
+			f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_2) + " and N50 = " + str(n_N50_for_golden_section_point_2) + "\n\n")
 
-	#После того, как посчитал AG для всех 10 точек, я смотрю, какая из них дала лучший AG. После этого делаю сборку для этого значения "-s", но на этот раз без использования параметра Modified_hifiasm "--only-primary", потому что тут я хочу сделать все файлы, в том числе файлы с фазированной сборкой — может быть, они будут полезны пользователю. Если две точки дают одинаковый AG, то, для определённости, выбираю ту из них, которая имеет меньший -s.
-	n_s_that_provides_maximum_AG = -100
-	n_maximum_AG = -100
+
+	#После того, как посчитал AG для всех 10 точек, я смотрю, какая из них дала наибольший AG. Если наибольший AG принадлежит сразу нескольким точкам, то выбираю ту из них, которая дала больший N50. Если несколько точек дают одинаковый AG и N50, то, для определённости, выбираю ту из них, которая имеет меньший -s. После этого делаю сборку для этого значения "-s", но на этот раз без использования параметра Modified_hifiasm "--only-primary", потому что тут я хочу сделать все файлы, в том числе файлы с фазированной сборкой — может быть, они будут полезны пользователю. 
+	
+	n_s_that_makes_the_best_assembly = -100
+	n_AG_in_the_best_point = -100
+	n_N50_in_the_best_point = -100
 	for n_s in d_s_to_AG:
-		if d_s_to_AG[n_s] > n_maximum_AG:
-			n_s_that_provides_maximum_AG = n_s
-			n_maximum_AG = d_s_to_AG[n_s]
-		
-		if (d_s_to_AG[n_s] == n_maximum_AG) and (n_s < n_s_that_provides_maximum_AG):
-			n_s_that_provides_maximum_AG = n_s
+		if d_s_to_AG[n_s] > n_AG_in_the_best_point:
+			n_s_that_makes_the_best_assembly = n_s
+			n_AG_in_the_best_point = d_s_to_AG[n_s]
+			n_N50_in_the_best_point = d_s_to_N50[n_s]
+		elif (d_s_to_AG[n_s] == n_AG_in_the_best_point) and (d_s_to_N50[n_s] > n_N50_in_the_best_point):
+			n_s_that_makes_the_best_assembly = n_s
+			n_AG_in_the_best_point = d_s_to_AG[n_s]
+			n_N50_in_the_best_point = d_s_to_N50[n_s]
+		elif (d_s_to_AG[n_s] == n_AG_in_the_best_point) and (d_s_to_N50[n_s] == n_N50_in_the_best_point) and (n_s < n_s_that_makes_the_best_assembly):
+			
+			n_s_that_makes_the_best_assembly = n_s
 	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("The optimal -s is " + str(n_s_that_provides_maximum_AG) + ", it provides AG = " + str(n_maximum_AG) + ". Now performing a full assembly for this value of -s.\n\n")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("The optimal -s is " + str(n_s_that_makes_the_best_assembly) + ", it provides AG = " + str(n_AG_in_the_best_point) + " and N50 = " + str(n_N50_in_the_best_point) + ". Now performing a full assembly for this value of -s.\n\n")
 	os.mkdir(s_path_to_the_output_folder + "/The_best_assembly")
 				
 	#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 	os.system("mv " + s_path_to_the_last_assembly_folder + "/*.bin " + s_path_to_the_last_assembly_folder + "/*utg* " + s_path_to_the_output_folder + "/The_best_assembly/")
 	
-	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_provides_maximum_AG) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Modified_hifiasm/modified_hifiasm -s " + str(n_s_that_makes_the_best_assembly) + " -o " + s_path_to_the_output_folder + "/The_best_assembly/assembly --n-hap " + str(n_ploidy) + " -t " + str(n_number_of_cpu_threads_to_use) + " " + s_additional_hifiasm_parameters + " " + s_command_line_arguments_with_reads_for_Modified_hifiasm)
 	
 	#Название выходного файла зависит от того, давал ли пользователь риды Hi-C или нет.
 	#если пользователь не дал риды Hi-C
@@ -842,8 +939,8 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 		
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
-	f_logs.write(s_current_time_and_date + "\n")
-	f_logs.write("Mabs-hifiasm finished. The contigs are in the file " + s_path_to_the_output_folder + "/The_best_assembly/assembly.fasta")
+	f_log.write(s_current_time_and_date + "\n")
+	f_log.write("Mabs-hifiasm finished. The contigs are in the file " + s_path_to_the_output_folder + "/The_best_assembly/assembly.fasta")
 
 
 
