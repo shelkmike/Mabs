@@ -1,7 +1,7 @@
 **Mabs** is a genome assembly tool which optimizes parameters of genome assemblers Hifiasm and Flye.<br><br>
 The core idea of Mabs is to optimize parameters of a genome assembler to make an assembly where **protein-coding genes** are assembled more accurately than when the assembler is run with its default parameters.<br><br>
 Briefly, Mabs works as follows:
-1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses a couple of tricks to accelerate the assembly process.
+1) It makes a series of genome assemblies by Hifiasm or Flye, using different values of parameters of these programs. Mabs uses several tricks to accelerate the assembly process.
 2) For each genome assembly, Mabs evaluates the quality of BUSCO genes' assembly using a special metric that I call "AG". For how AG is calculated, see [calculate_AG](#calculate_ag).
 3) The genome assembly with the largest AG is considered the best.
 
@@ -131,7 +131,7 @@ In my experience, you can improve assemblies made by Mabs-flye by Purge_dups. Ho
 9. The option "--download_busco_dataset" fails to download a BUSCO dataset. What should I do?<br>
 This can happen if http://mikeshelk.site and, consequently, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible for some reason. To deal with this problem, manually download a file from http://busco-data.ezlab.org/v5/data/lineages/ and provide it to Mabs via the option "--local_busco_dataset".
 10. Is the current algorithm of Mabs identical to the algorithm described in the article [https://pubmed.ncbi.nlm.nih.gov/37794322/](https://pubmed.ncbi.nlm.nih.gov/37794322/)?<br>
-Not exactly. After the article was submitted to the journal, I made a couple of changes in the algorithm. All of them are described in https://github.com/shelkmike/Mabs/releases . The most significant change was that the version of Mabs-flye described in the article assumed values of Flye parameters "assemble_ovlp_divergence" and "repeat_graph_ovlp_divergence" equal to each other; however, starting from the version 2.24, Mabs-flye optimizes values of these parameters independently (see [https://github.com/shelkmike/Mabs/releases/tag/2.24](https://github.com/shelkmike/Mabs/releases/tag/2.24))
+Not exactly. After the article was submitted to the journal, I made several changes in the algorithm. All of them are described in https://github.com/shelkmike/Mabs/releases . The most significant change was that the version of Mabs-flye described in the article assumed values of Flye parameters "assemble_ovlp_divergence" and "repeat_graph_ovlp_divergence" equal to each other; however, starting from the version 2.24, Mabs-flye optimizes values of these parameters independently (see [https://github.com/shelkmike/Mabs/releases/tag/2.24](https://github.com/shelkmike/Mabs/releases/tag/2.24))
 11. What does "Mabs" mean?<br>
 Funny to say, but "Mabs" means "Miniasm-based Assembler which maximizes Busco Score". That's because:<br>
 a) The first version of Mabs was based on Miniasm instead of Hifiasm and Flye.<br>
