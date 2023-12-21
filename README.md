@@ -19,7 +19,7 @@ Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces b
 - [Questions and Answers](#questions-and-answers)
 <br><br>
 ## Installation
-Mabs requires Python 3, Perl 5, GCC, Zlib-dev, Make.<br>
+Mabs requires Python 3, Perl 5, GCC, Zlib-dev, Make (these are standard programs which are usually already present on your computer).<br>
 Mabs should be installed in two steps:<br>
 1. Install Python libraries Pandas, Plotnine, SciPy. This can be done, for example, by running the following two commands one after the other:<br>
 `pip3 install --upgrade --user pip`<br>
