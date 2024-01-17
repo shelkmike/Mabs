@@ -298,10 +298,10 @@ void Extender::assembleDisjointigs()
 		//int extRight = this->countRightExtensions(startOvlps);
 
 		if (_chimDetector.isChimeric(startRead, startOvlps) ||
-			_readsContainer.seqLen(startRead) < _safeOverlap ||
-			//std::max(extLeft, extRight) > maxStartExt ||
-			//std::min(extLeft, extRight) < minStartExt ||
-			numInnerOvlp > totalOverlaps / 2) return;
+			_readsContainer.seqLen(startRead) < _safeOverlap) return;
+
+		const bool aggressiveDupFilt = (int)Config::get("aggressive_dup_filter");
+		if (aggressiveDupFilt && numInnerOvlp > totalOverlaps / 2) return;
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendDisjointig(startRead);

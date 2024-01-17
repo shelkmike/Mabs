@@ -166,7 +166,7 @@ int HaplotypeResolver::findHeterozygousLoops()
 		//loop coverage should be roughly equal or less
 		if (loop.meanCoverage > 
 				COV_MULT * std::min(entrancePath->meanCoverage, 
-									entrancePath->meanCoverage)) continue;
+									exitPath->meanCoverage)) continue;
 
 		//loop should not be longer than other branches
 		if (loop.length > std::max(entrancePath->length, 

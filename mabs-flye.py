@@ -35,7 +35,7 @@ from Additional import mabs_function_preprocess_busco_dataset
 
 if __name__ == '__main__':
 	
-	s_path_to_the_folder_where_Mabs_lies = os.path.abspath(os.path.dirname( __file__ )) #Путь к папке, где лежит Mabs. Делаю, как написано на https://csatlas.com/python-script-path/
+	s_path_to_the_folder_where_Mabs_lies = os.path.dirname(os.path.realpath( __file__ )) #Путь к папке, где лежит Mabs. Использую os.path.realpath, чтобы если Mabs запускается по мягкой ссылке на исполняемый файл, всё равно удалось обнаружить папки Additional_src и Test_datasets.
 
 	#Сначала проверяю, все ли нужные программы доступны, а также то, что присутствуют папки "Additional" и "Test_datasets". Все проблемы запишу в список l_unavailable_files_and_folders, и потом напечатаю его. Если пользователь допустил ошибки ещё и в командной строке, то напечатаю оба списка проблем (недоступные файлы и ошибки в командной строке) сразу.
 	l_unavailable_files_and_folders = []
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	s_additional_flye_parameters = "" #дополнительные параметры Flye.
 	
-	s_Mabs_version = "2.24"
+	s_Mabs_version = "2.27"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
@@ -143,9 +143,9 @@ Main options:
 12) --additional_flye_parameters        A string with additional parameters to be passed to Flye, enclosed in square brackets. Example: "--additional_flye_parameters [--scaffold --min-overlap 20000]".
 
 Informational options:
-12) --help        Print this help.
-13) --version        Print the version of Mabs-flye.
-14) --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
+13) --help        Print this help.
+14) --version        Print the version of Mabs-flye.
+15) --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
 
 Example 1:
 mabs-flye.py --nanopore_reads nanopore_reads.fastq --download_busco_dataset eudicots_odb10.2020-09-10.tar.gz --threads 40
@@ -765,7 +765,7 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 		s_long_reads_option_for_calculate_AG = "--pacbio_clr_reads"
 	
 	"""
-	Теперь нужно определить, какой опцией Flye давать риды (--nano-raw, --nano-corr или другие). Если пользователь хотя бы один файл дал в формате FASTA, то использую --nano-raw. Если все риды в формате FASTQ, то я делаю следующее:
+	Теперь нужно определить, какой опцией Flye давать риды (--nano-raw, --nano-corr или другие). Если пользователь хотя бы один файл дал в формате FASTA, то использую --nano-raw, за исключением случая, когда пользователь дал только риды HiFi — тогда использую --pacbio-hifi. Если все риды в формате FASTQ, то я делаю следующее:
 	I) Считаю точность для каждого рида, используя строку с качеством. "Точность" выражается в процентах.
 	II) Считаю медианное значение по значениям из "I)"
 	III) В завимисимости от значения из "II)" выбираю, какой опцией давать риды программе Flye. Задавая эти числа, я ориентировался на описания опций в https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md
@@ -784,7 +784,11 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	if not re.search(r"(\.fastq|\.fq|\.fastq\.gz|\.fq\.gz)$", s_path_to_all_long_reads_that_correspond_to_busco_genes, flags = re.IGNORECASE):
 		f_log.write("WARNING: you have provided reads in FASTA, while FASTQ is recommended. Using reads in FASTA may reduce the accuracy of the assembly.\n\n")
 		
-		s_flye_option_to_provide_reads_with = "--nano-raw"
+		#Если пользователь дал риды HiFi, то Flye будет использовать их с опцией --pacbio-hifi даже если риды в формате FASTA.
+		if (s_path_to_nanopore_reads == "") and (s_path_to_pacbio_hifi_reads != "") and (s_path_to_pacbio_clr_reads == ""):
+			s_flye_option_to_provide_reads_with = "--pacbio-hifi"
+		else:
+			s_flye_option_to_provide_reads_with = "--nano-raw"
 	else:
 		#Считаю медианный Phred score ридов. Считаю, что риды в формате Phred+33, потому что Phred+64 для длинных ридов, по-моему, никогда не использовался.
 		
@@ -947,7 +951,7 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
 	f_log.write(s_current_time_and_date + "\n")
-	f_log.write("The optimal combination of Flye parameters as determined by Mabs-flye is: assemble_ovlp_divergence = " + str(n_optimal_assemble_ovlp_divergence) + ", repeat_graph_ovlp_divergence = " + str(n_optimal_repeat_graph_ovlp_divergence) + ", assemble_divergence_relative = 0. When assembling only genes, it provides AG = " + str(n_maximum_AG) + ". Now Mabs-flye starts to assemble the genome using all reads with the optimal combination of parameters.\n\n")
+	f_log.write("The optimal combination of Flye parameters as determined by Mabs-flye is: assemble_ovlp_divergence = " + str(round(n_optimal_assemble_ovlp_divergence, 5)) + ", repeat_graph_ovlp_divergence = " + str(round(n_optimal_repeat_graph_ovlp_divergence, 5)) + ", assemble_divergence_relative = 0. When assembling only genes, it provides AG = " + str(n_maximum_AG) + ". Now Mabs-flye starts to assemble the genome using all reads with the optimal combination of parameters.\n\n")
 	
 	#Теперь делаю сборку Flye по всем ридам, используя найденную оптимальную комбинацию параметров.
 	

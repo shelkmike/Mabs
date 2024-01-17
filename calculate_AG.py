@@ -31,7 +31,7 @@ from Additional import mabs_function_preprocess_busco_dataset
 
 if __name__ == '__main__':
 
-	s_path_to_the_folder_where_Mabs_lies = os.path.abspath(os.path.dirname( __file__ )) #Путь к папке, где лежит Mabs. Делаю, как написано на https://csatlas.com/python-script-path/
+	s_path_to_the_folder_where_Mabs_lies = os.path.dirname(os.path.realpath( __file__ )) #Путь к папке, где лежит Mabs. Использую os.path.realpath, чтобы если Mabs запускается по мягкой ссылке на исполняемый файл, всё равно удалось обнаружить папки Additional_src и Test_datasets.
 
 	#Сначала проверяю, все ли нужные программы доступны, а также то, что присутствуют папки "Additional" и "Test_datasets". Все проблемы запишу в список l_unavailable_files_and_folders, и потом напечатаю его. Если пользователь допустил ошибки ещё и в командной строке, то напечатаю оба списка проблем (недоступные файлы и ошибки в командной строке) сразу.
 	l_unavailable_files_and_folders = []
@@ -89,7 +89,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.24" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.27" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
@@ -559,7 +559,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 				#в формате paf первая из двух координат всегда меньше второй
 				n_match_leftmost_coordinate = int(l_line_split[7])
 				n_match_rightmost_coordinate = int(l_line_split[8])
-				f_outfile.write(s_contig_title + "\t" + str(n_match_leftmost_coordinate) + "\t" + str(n_match_rightmost_coordinate + 1) + "\n")
+				f_outfile.write(s_contig_title + "\t" + str(n_match_leftmost_coordinate) + "\t" + str(n_match_rightmost_coordinate) + "\n")
 
 		f_infile.close()
 		f_outfile.close()
@@ -896,7 +896,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 	f_log.write("AG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups is " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
 	f_AG_calculation_results.write("AG is " + str(n_AG))
 	
-	f_log.close
+	f_log.close()
 	
 	#Строю синаплот с покрытием генов.
 	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/plot_gene_coverage_distribution.py " + s_path_to_the_output_folder + "/log.txt 2.5 auto " + s_path_to_the_output_folder + "/gene_coverage_distribution")

@@ -125,6 +125,8 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
     with open(stats_file, "w") as f:
         f.write("#seq_name\tlength\tcoverage\n")
         for ctg_id in contig_lengths:
+            if ctg_id not in coverage_stats:
+                coverage_stats[ctg_id] = 0
             f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
 

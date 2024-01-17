@@ -236,10 +236,17 @@ flye --polish-target SEQ_TO_POLISH --pacbio-raw READS --iterations NUM_ITER --ou
 
 You can also provide Bam file as input instead of reads, which will skip the read mapping step.
 
+
+Flye assembly of the same reads is slightly different from run to run
+---------------------------------------------------------------------
+
+Flye is not fully deterministic, and this would be very difficult to fix. See more info here: https://github.com/fenderglass/Flye/issues/509
+For test runs, one can use `--deterministic` option to make the output stable, at the expense of substantially slower runtimes.
+
 My question is not listed, how do I get help?
 ---------------------------------------------
 
 Please post your question to the [issue tracker](https://github.com/fenderglass/Flye/issues). 
-In case you prefer personal communcation, you can contact Mikhail at fenderglass@gmail.com.
+In case you prefer personal communcation, you can contact Mikhail at mikolmogorov@gmail.com.
 If you reporting a problem, please include the `flye.log` file and provide some 
 details about your dataset (if possible).

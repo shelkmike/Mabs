@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.9.2
+### Version: 2.9.3
 
 Flye is a de novo assembler for single-molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
@@ -25,6 +25,12 @@ Manuals
 
 Latest updates
 --------------
+
+### Flye 2.9.3 release (28 November 2023)
+* Disjointig step speedup for `--nano-hq` mode
+* Improved `--keep-haplotypes` mode preserves more heterozygous SVs
+* A few bug fixes
+
 
 ### Flye 2.9.2 release (18 March 2023)
 * Update to minimap 2.24 + using HiFi and Kit14 parameters for faster alignment
@@ -53,29 +59,6 @@ Latest updates
 * Contig paths output in Gfa + number of reads supporting each link (RC tag)
 * Update to minimap 2.18
 * Several rare bug fixes/other improvements
-
-### Flye 2.8.3 release (10 Feb 2021)
-* Reduced RAM consumption for some ultra-long ONT datasets
-* Fixed rare artificial sequence insertions on some ONT datasets
-* Assemblies should be largely identical to 2.8
-
-### Flye 2.8.2 release (12 Dec 2020)
-* Improvements in GFA output, much faster generation of large and tangled graphs
-* Speed improvements for graph simplification algorithms
-* A few minor bugs fixed
-* Assemblies should be largely identical to 2.8
-
-### Flye 2.8.1 release (02 Sep 2020)
-* Added a new option `--hifi-error` to control the expected error rate of HiFi reads (no other changes)
-
-### Flye 2.8 release (04 Aug 2020)
-* Improvements in contiguity and speed for PacBio HiFi mode
-* Using the `--meta` k-mer selection strategy in isolate assemblies as well.
-This strategy is more robust to drops in coverage/contamination and requires less memory
-* 1.5-2x RAM footprint reduction for large assemblies (e.g. human ONT assembly now uses 400-500 Gb)
-* Genome size parameter is no longer required (it is still needed for downsampling though `--asm-coverage`)
-* Flye now can occasionally use overlaps shorter than "minOverlap" parameter to close disjointing gaps
-* Various improvements and bugfixes
 
 
 Repeat graph
@@ -218,4 +201,4 @@ has already been answered.
 If you are reporting a problem, please include the `flye.log` file and provide
 details about your dataset.
 
-In case you prefer personal communication, please contact Mikhail at fenderglass@gmail.com.
+In case you prefer personal communication, please contact Mikhail at mikolmogorov@gmail.com.

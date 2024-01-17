@@ -75,7 +75,7 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 	return edges;
 }
 
-void RepeatGraph::build()
+void RepeatGraph::build(bool keepHaplotypes)
 {
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs);
@@ -104,7 +104,10 @@ void RepeatGraph::build()
 	asmOverlaps.overlapDivergenceStats();
 
 	this->getGluepoints(asmOverlaps);
-	this->collapseTandems();
+	if (!keepHaplotypes)
+	{
+		this->collapseTandems();
+	}
 	this->initializeEdges(asmOverlaps);
 	GraphProcessor proc(*this, _asmSeqs);
 	proc.simplify();

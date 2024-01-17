@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define HA_VERSION "0.19.5-r587"
+#define HA_VERSION "0.19.8-r603"
 
 #define VERBOSE 0
 
@@ -37,7 +37,7 @@ typedef struct {
     int num_reads;
     char** read_file_names;
     char* output_file_name;
-	int make_only_primary_contigs;
+    int make_only_primary_contigs;
     char* required_read_name;
 	char *fn_bin_yak[2];
 	char *fn_bin_list[2];
@@ -46,6 +46,7 @@ typedef struct {
     enzyme *hic_reads[2];
     enzyme *hic_enzymes;
     enzyme *ar;
+    enzyme *sec_in;
 	int extract_iter;
     int thread_num;
     int k_mer_length;
@@ -132,7 +133,7 @@ typedef struct {
     float dp_e;
     int64_t hg_size;
     float kpt_rate;
-    int64_t infor_cov, s_hap_cov;
+    int64_t infor_cov, s_hap_cov, trio_cov_het_ovlp;
     double ul_error_rate, ul_error_rate_low, ul_error_rate_hpc;
     int32_t ul_ec_round;
     uint8_t is_dbg_het_cnt;
@@ -147,6 +148,12 @@ typedef struct {
     int32_t integer_correct_round;
     uint8_t dbg_ovec_cal;
     uint8_t hifi_pst_join, ul_pst_join;
+    uint32_t ul_min_base;
+    uint8_t self_scaf;
+    uint64_t self_scaf_min;
+    uint64_t self_scaf_reliable_min;
+    int64_t self_scaf_gap_max;
+    int64_t somatic_cov;
 } hifiasm_opt_t;
 
 extern hifiasm_opt_t asm_opt;

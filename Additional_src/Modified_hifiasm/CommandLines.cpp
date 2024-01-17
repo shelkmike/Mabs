@@ -60,7 +60,13 @@ static ko_longopt_t long_options[] = {
     { "dbg-ovec",     ko_no_argument, 345},
     { "path-max",     ko_required_argument, 346},
     { "path-min",     ko_required_argument, 347},
-	{ "only-primary",     ko_no_argument, 348},
+    { "trio-dual",     ko_no_argument, 348},
+    { "ul-cut",     ko_required_argument, 349},
+    { "dual-scaf",     ko_no_argument, 350},
+    { "scaf-gap",     ko_required_argument, 351},
+    { "sec-in",     ko_required_argument, 352},
+    { "somatic-cov",     ko_required_argument, 353},
+    { "only-primary",     ko_no_argument, 354},
     // { "path-round",     ko_required_argument, 348},
 	{ 0, 0, 0 }
 };
@@ -74,13 +80,13 @@ double Get_T(void)
 
 void Print_H(hifiasm_opt_t* asm_opt)
 {
-	fprintf(stderr, "Modified_hifiasm is a special version of Hifiasm made for Mabs. It has an additional option --only-primary that makes an assembly terminate after the GFA file with primary contigs has been made. This allows to save some time if only primary contigs are needed.\n");
-    fprintf(stderr, "Usage: hifiasm [options] <in_1.fq> <in_2.fq> <...>\n");
+    fprintf(stderr, "Modified_hifiasm is a special version of Hifiasm made for Mabs. It has an additional option --only-primary that makes an assembly terminate after the GFA file with primary contigs has been made. This allows to save some time if only primary contigs are needed.\n");
+    fprintf(stderr, "Usage: modified_hifiasm [options] <in_1.fq> <in_2.fq> <...>\n");
     fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  Input/Output:\n");
     fprintf(stderr, "    -o STR       prefix of output files [%s]\n", asm_opt->output_file_name);
     fprintf(stderr, "    -t INT       number of threads [%d]\n", asm_opt->thread_num);
-	fprintf(stderr, "    --only-primary       make only primary contigs\n");
+    fprintf(stderr, "    --only-primary       make only primary contigs\n");
     fprintf(stderr, "    -h           show help information\n");
     fprintf(stderr, "    --version    show version number\n");
 	fprintf(stderr, "  Overlap/Error correction:\n");
@@ -132,6 +138,8 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --t-occ      INT\n");
     fprintf(stderr, "                 forcedly remove unitigs with >INT unexpected haplotype-specific reads;\n");
     fprintf(stderr, "                 ignore graph topology; [%d]\n", asm_opt->trio_flag_occ_thres);
+    fprintf(stderr, "    --trio-dual  utilize homology information to correct trio phasing errors\n");
+
 
     fprintf(stderr, "  Purge-dups:\n");
     fprintf(stderr, "    -l INT       purge level. 0: no purging; 1: light; 2/3: aggressive [0 for trio; 3 for unzip]\n");
@@ -162,7 +170,7 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --l-msjoin   INT\n");
     fprintf(stderr, "                 detect misjoined unitigs of >=INT in size; 0 to disable [%lu]\n", asm_opt->misjoin_len);
 
-    fprintf(stderr, "  Ultra-Long-integration (beta):\n");
+    fprintf(stderr, "  Ultra-Long-integration:\n");
     fprintf(stderr, "    --ul FILEs   file names of Ultra-Long reads [r1.fq,r2.fq,...]\n");
     fprintf(stderr, "    --ul-rate    FLOAT\n");
     fprintf(stderr, "                 error rate of Ultra-Long reads [%.3g]\n", asm_opt->ul_error_rate);
@@ -174,9 +182,16 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --path-min   FLOAT\n");
     fprintf(stderr, "                 min path drop ratio [%.2g]; higher number may make the assembly cleaner\n", asm_opt->min_path_drop_rate);
     fprintf(stderr, "                 but may lead to more misassemblies\n");
+    fprintf(stderr, "    --ul-cut     INT\n");
+    fprintf(stderr, "                 filter out <INT UL reads during the UL assembly [%d]\n", asm_opt->ul_min_base);
     // fprintf(stderr, "    --low-het    enable it for genomes with very low het heterozygosity rate (<0.0001%%)\n");
 
-    fprintf(stderr, "Example: ./hifiasm -o NA12878.asm -t 32 NA12878.fq.gz\n");
+    fprintf(stderr, "  Dual-Scaffolding:\n");
+    fprintf(stderr, "    --dual-scaf  output scaffolding\n");
+    fprintf(stderr, "    --scaf-gap   INT\n");
+    fprintf(stderr, "                 max gap size for scaffolding [%ld]\n", asm_opt->self_scaf_gap_max);
+
+    fprintf(stderr, "Example: ./modified_hifiasm-o NA12878.asm -t 32 NA12878.fq.gz\n");
     fprintf(stderr, "See `https://hifiasm.readthedocs.io/en/latest/' or `man ./hifiasm.1' for complete documentation.\n");
 }
 
@@ -289,6 +304,14 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->max_path_drop_rate = 0.6;
     asm_opt->hifi_pst_join = 1;
     asm_opt->ul_pst_join = 1;
+    asm_opt->trio_cov_het_ovlp = -1;
+    asm_opt->ul_min_base = 0;
+    asm_opt->self_scaf = 0;
+    asm_opt->self_scaf_min = 250000;
+    asm_opt->self_scaf_reliable_min = 5000000;
+    asm_opt->self_scaf_gap_max = 3000000;
+    asm_opt->sec_in = NULL;
+    asm_opt->somatic_cov = -1;
 }
 
 void destory_enzyme(enzyme* f)
@@ -833,7 +856,13 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
         else if (c == 345) asm_opt->dbg_ovec_cal = 1;
         else if (c == 346) asm_opt->max_path_drop_rate = atof(opt.arg);
         else if (c == 347) asm_opt->min_path_drop_rate = atof(opt.arg);
-		else if (c == 348) asm_opt->make_only_primary_contigs = 1; ///1 means "true", 0 means "false".
+        else if (c == 348) asm_opt->trio_cov_het_ovlp = 1;
+        else if (c == 349) asm_opt->ul_min_base = atol(opt.arg);
+        else if (c == 350) asm_opt->self_scaf = 1;
+        else if (c == 351) asm_opt->self_scaf_gap_max = atol(opt.arg);
+        else if (c == 352) get_hic_enzymes(opt.arg, &(asm_opt->sec_in), 0);
+        else if (c == 353) asm_opt->somatic_cov = atol(opt.arg);
+        else if (c == 354) asm_opt->make_only_primary_contigs = 1; ///1 means "true", 0 means "false".
         else if (c == 'l') {   ///0: disable purge_dup; 1: purge containment; 2: purge overlap
             asm_opt->purge_level_primary = asm_opt->purge_level_trio = atoi(opt.arg);
         }

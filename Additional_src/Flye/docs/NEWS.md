@@ -1,3 +1,9 @@
+Flye 2.9.3 release (28 November 2023)
+====================================
+* Disjointig step speedup for `--nano-hq` mode
+* Improved `--keep-haplotypes` mode preserves more heterozygous SVs
+* A few bug fixes
+
 Flye 2.9.2 release (18 March 2023)
 =================================
 * Update to minimap 2.24 + using HiFi and Kit14 parameters for faster alignment

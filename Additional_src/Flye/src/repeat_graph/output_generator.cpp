@@ -106,13 +106,23 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	}
 
 	//make sure that if there are nodes with one incoming and one outgoing
-	//edge, they are connected. Most relevant to the circular contigs
+	//edge, they are connected. Initialize those connections to zero.
+	//Most relevant to the circular contigs, but also to strange bubbles
 	for (auto& node : _graph.iterNodes())
 	{
-		if (node->inEdges.size() == 1 && node->outEdges.size() == 1)
+		if (node->outEdges.size() == 1)
 		{
-			//initialize to zero
-			edgeConnections[node->inEdges.front()][node->outEdges.front()];
+			for (auto& inEdge : node->inEdges)
+			{
+				edgeConnections[inEdge][node->outEdges.front()];	//initialize to zero
+			}
+		}
+		if (node->inEdges.size() == 1)
+		{
+			for (auto& outEdge : node->outEdges)
+			{
+				edgeConnections[node->inEdges.front()][outEdge];	//initialize to zero
+			}
 		}
 	}
 

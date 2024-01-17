@@ -33,7 +33,7 @@ def function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_
 			n_full_number_of_busco_orthogroups_in_the_downloaded_dataset = int(o_regular_expression_results.group(1))
 
 	if n_full_number_of_busco_orthogroups_in_the_downloaded_dataset == 0:
-		f_logs.write("Error. Cannot find the number of orthogroups used in this BUSCO dataset. Stopping.\n")
+		f_log.write("Error. Cannot find the number of orthogroups used in this BUSCO dataset. Stopping.\n")
 		sys.exit("Error. Cannot find the number of orthogroups used in this BUSCO dataset. Stopping.\n")
 
 	f_infile.close()

@@ -429,6 +429,9 @@ def _run_polisher_only(args):
     if bam_input and len(args.reads) > 1:
         raise ResumeException("Only single bam input supported")
 
+    if bam_input and args.num_iters > 1:
+        raise ResumeException("Bam input only supports single iteration. For multiple iterations, provide fastq instead")
+
     pol.polish(args.polish_target, args.reads, args.out_dir,
                args.num_iters, args.threads, args.platform,
                args.read_type, output_progress=True)
@@ -678,19 +681,21 @@ def main():
     if args.read_error and args.read_error > 1:
         parser.error("--read-error expressed as a decimal fraction, e.g. 0.01 or 0.03")
 
+    def _add_extra_param(param):
+        if args.extra_params:
+            args.extra_params += "," + param
+        else:
+            args.extra_params = param
+
     if args.read_error:
         hifi_str = "assemble_ovlp_divergence={0},repeat_graph_ovlp_divergence={0}".format(args.read_error)
-        if args.extra_params:
-            args.extra_params += "," + hifi_str
-        else:
-            args.extra_params = hifi_str
+        _add_extra_param(hifi_str)
 
     if args.no_alt_contigs:
-        alt_params = "remove_alt_edges=1"
-        if args.extra_params:
-            args.extra_params += "," + alt_params
-        else:
-            args.extra_params = "remove_alt_edges=1"
+        _add_extra_param("remove_alt_edges=1")
+
+    if args.keep_haplotypes:
+        _add_extra_param("aggressive_dup_filter=0")
 
     if args.pacbio_raw:
         args.reads = args.pacbio_raw

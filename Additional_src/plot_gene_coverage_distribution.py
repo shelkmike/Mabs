@@ -5,7 +5,7 @@
 Этот скрипт нужен, чтобы делать синаплоты покрытия генов однокопийных и многокопийных ортогрупп.
 
 На вход он берёт 
-1) Файл logs.txt , который делает calculate_AG.py
+1) Файл log.txt , который делает calculate_AG.py
 2) Размер точки синаплота. Нормальный размер 2.5, но если ортогрупп очень много, то можно и уменьшить.
 3) Какое взять максимальное покрытие. Или слово "auto" или число. Если пользователь указал auto, то скрипт сам выбирает максимальное покрытие для диаграммы (то есть, максимальное значение, которое будет отображено на оси Y), а если пользователь указал число, то скрипт использует такое покрытие.
 4) Путь к выходному файлу с картинкой без расширения. 
@@ -13,7 +13,7 @@
 Скрипт создаёт два файла с одной и той же картинкой — один в формате svg и один в формате png.
 
 Пример использования:
-python3 plot_gene_coverage_distribution.py ./Soldierfish_assembly_results/AG_calculation_for_max_divergence_0.216452/logs.txt 2.5 auto ./Soldierfish_assembly_results/AG_calculation_for_max_divergence_0.216452/gene_coverage_distribution
+python3 plot_gene_coverage_distribution.py ./Soldierfish_assembly_results/AG_calculation_for_max_divergence_0.216452/log.txt 2.5 auto ./Soldierfish_assembly_results/AG_calculation_for_max_divergence_0.216452/gene_coverage_distribution
 
 Соответственно, в папке ./Soldierfish_assembly_results/AG_calculation_for_max_divergence_0.216452/ создадутся файлы gene_coverage_distribution.svg и gene_coverage_distribution.png .
 """
@@ -76,9 +76,10 @@ else:
 
 o_plot = plotnine.ggplot(o_data_frame) + plotnine.aes(x = "", y = "Sequencing coverage") + plotnine.geom_sina(color = "#4472C4", scale = "area", size = n_point_size) + plotnine.scales.scale_x_discrete(limits = ["Genes from\nsingle-copy\northogroups", "Genes from\nmulticopy\northogroups"]) + plotnine.scales.scale_y_continuous(expand = (0, 0), limits = (0, n_maximum_coverage_to_draw)) + plotnine.theme_light() + plotnine.theme(text = plotnine.element_text(linespacing = 1.1))
 
-#Делаю картинки
-o_plot.save(filename = s_path_to_the_output_svg_file, format = "svg", height = 10, width = 10, units = 'cm')
-o_plot.save(filename = s_path_to_the_output_png_file, format = "png", height = 10, width = 10, units = 'cm', dpi = 300)
+#Делаю картинки.
+#"verbose = False" использую, чтобы Plotnine не писал warnings про то, что он сохраняет картинки. Почему-то когда Plotnine сохраняет картинки он всегда об этом пишет, используя слово "Warning". Это может смутить пользователя.
+o_plot.save(filename = s_path_to_the_output_svg_file, format = "svg", height = 10, width = 10, units = 'cm', verbose = False)
+o_plot.save(filename = s_path_to_the_output_png_file, format = "png", height = 10, width = 10, units = 'cm', dpi = 300, verbose = False)
 
 
 
