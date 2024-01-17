@@ -26,6 +26,9 @@ Mabs should be installed in two steps:<br>
 `pip3 install --upgrade --user Pandas Plotnine scipy`<br>
 2. Download the latest version of Mabs from [Releases](https://github.com/shelkmike/Mabs/releases). Extract the archive and run<br>
 `bash install.sh`
+
+&nbsp;<br>
+Alternatively, you can use a Singularity container with Mabs: [https://mikeshelk.site/Diff/Mabs_distribution/Singularity_containers/](https://mikeshelk.site/Diff/Mabs_distribution/Singularity_containers/) . To see information on how to use Mabs from the container, run a command "singularity run-help mabs.sif".
 <br><br>
 ## How to use
 Two main components of Mabs are Mabs-hifiasm and Mabs-flye. Mabs-hifiasm works as a parameter optimizer of Hifiasm, while Mabs-flye works as a parameter optimizer of Flye.
@@ -34,7 +37,7 @@ Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can
 To run Mabs-hifiasm, a user should provide two values:
 1. A path to reads, via the option "--pacbio_hifi_reads".
 2. A BUSCO dataset. In the process of parameters optimization, Mabs uses a BUSCO dataset. The dataset can be provided using either the option "--download_busco_dataset", or the option "--local_busco_dataset".
-The option "--download_busco_dataset" requires a filename from [http://mikeshelk.site/Data/BUSCO_datasets/Latest/](http://mikeshelk.site/Data/BUSCO_datasets/Latest/) . It is recommended to use the most taxonomically narrow dataset. For example, if you assemble a drosophila genome, use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz".
+The option "--download_busco_dataset" requires a filename from [https://mikeshelk.site/Data/BUSCO_datasets/Latest/](https://mikeshelk.site/Data/BUSCO_datasets/Latest/) . It is recommended to use the most taxonomically narrow dataset. For example, if you assemble a drosophila genome, use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz".
 Alternatively, you can download a dataset to your computer manually, and use the option "--local_busco_dataset". For example, "--local_busco_dataset /home/username/Work/diptera_odb10.2020-08-05.tar.gz".
 
 To see the full list of options, run
@@ -104,9 +107,9 @@ For more options, run<br>
 <br><br>
 The main file produced by calculate_AG is ./AG_calculation_results/AG.txt . It contains a single number which is the AG.
 In addition, calculate_AG produces figures <i>gene_coverage_distribution.svg</i> and <i>gene_coverage_distribution.png</i> which look like this:<br>
-![image with a relatively bad assembly](http://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_bad_assembly.png)<br>
+![image with a relatively bad assembly](https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_bad_assembly.png)<br>
 This type of diagrams is called sinaplot, see https://cran.r-project.org/web/packages/sinaplot/vignettes/SinaPlot.html . The sinaplot produced by calculate_AG helps to evaluate the assembly quality visually. While the coverage distribution of genes from single-copy orthogroups is unimodal, the coverage distribution of genes from multicopy orthogroups can be bimodal because genes that were erroneously duplicated have **twice as low** coverage as they should have. In the perfect assembly, the coverage distribution of genes from multicopy orthogroups is identical to the coverage distribution of genes from single-copy orthogroups. The picture above is for a rather bad assembly. Below is the picture made by calculate_AG for a better assembly of the same genome:<br>
-![image with a relatively good assembly](http://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_good_assembly.png)<br>
+![image with a relatively good assembly](https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_good_assembly.png)<br>
 <br><br>
 The right distribution usually has fewer genes than the left (because BUSCO orthogroups are usually single-copy). However, Calculate_AG draws these two distribution such that they have the same area (but different density of points), to make a visual comparison of their shapes easier.<br><br>
 The recommended usage of calculate_AG is to compare the quality of assemblies of a single genome made by different genome assemblers, or made by a single assembler with different parameters. Besides the value of AG (in the file ./AG_calculation_results/AG.txt), calculate_AG also writes the exact numbers of genes in single-copy orthogroups, in true multicopy orthogroups, and in false multicopy orthogroups; the corresponding values can be found at the end of the file ./AG_calculation_results/log.txt.
@@ -131,7 +134,7 @@ Yes. You'll need to make "pat.yak" and "mat.yak" files as described in the readm
 9. Should additional programs for haplotypic duplications removal (such as Purge_dups) be applied to assemblies made by Mabs?<br>
 In my experience, you can improve assemblies made by Mabs-flye by Purge_dups. However, in my experience, Purge_dups has detrimendal effect on assemblies made by Mabs-hifiasm. Still, you can try and see for yourself.
 10. The option "--download_busco_dataset" fails to download a BUSCO dataset. What should I do?<br>
-This can happen if http://mikeshelk.site and, consequently, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible for some reason. To deal with this problem, manually download a file from http://busco-data.ezlab.org/v5/data/lineages/ and provide it to Mabs via the option "--local_busco_dataset".
+This can happen if https://mikeshelk.site and, consequently, https://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible for some reason. To deal with this problem, manually download a file from http://busco-data.ezlab.org/v5/data/lineages/ and provide it to Mabs via the option "--local_busco_dataset".
 11. Is the current algorithm of Mabs identical to the algorithm described in the article [https://pubmed.ncbi.nlm.nih.gov/37794322/](https://pubmed.ncbi.nlm.nih.gov/37794322/)?<br>
 Not exactly. After the article was submitted to the journal, I made several changes in the algorithm. All of them are described in https://github.com/shelkmike/Mabs/releases . The most significant change was that the version of Mabs-flye described in the article assumed values of Flye parameters "assemble_ovlp_divergence" and "repeat_graph_ovlp_divergence" equal to each other; however, starting from the version 2.24, Mabs-flye optimizes values of these parameters independently (see [https://github.com/shelkmike/Mabs/releases/tag/2.24](https://github.com/shelkmike/Mabs/releases/tag/2.24))
 12. What does "Mabs" mean?<br>
