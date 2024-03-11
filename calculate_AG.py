@@ -89,7 +89,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.27" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.28" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 2) --nanopore_reads        Path to Nanopore reads.
 3) --pacbio_clr_reads        Path to PacBio CLR reads, also known as "old PacBio" reads.
 4) --pacbio_hifi_reads       Path to PacBio HiFi reads, also known as CCS reads.
-5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly, use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Calculate_AG will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Calculate_AG will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
 6) --threads        Number of CPU threads to be used by calculate_AG. The default value is 10.
 7) --use_proovframe         Whether calculate_AG should polish sequences using Proovframe. "true" or "false". The default value is "false".
 8) --output_folder        Output folder for calculate_AG results. The default is "AG_calculation_results".
@@ -388,7 +388,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 	#если файл с контигами пустой, то сразу останавливаю выполнение calculate_AG, считая что AG=0. Иначе Metaeuk выдаст ошибку (если я правильно помню).
 	n_size_of_the_file_with_contigs = os.stat(s_path_to_the_assembly).st_size
 	if n_size_of_the_file_with_contigs == 0:
-		f_log.write("AG is 0")
+		f_log.write("\nAG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
@@ -447,7 +447,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 
 	#если MetaEuk вообще не выдал результатов, то считаю, что AG=0.
 	if not os.path.exists(s_path_to_the_output_folder + "/MetaEuk_results.fas"):
-		f_log.write("AG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
+		f_log.write("\nAG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
@@ -889,11 +889,11 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 			
 			n_AG = n_number_of_single_copy_genes_found_in_the_assembly + n_number_of_true_multicopy_genes
 	else:
-		f_log.write("AG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
+		f_log.write("\nAG is 0. Number of genes in single-copy orthogroups is 0. Number of genes in true multicopy orthogroups is 0. Number of genes in false multicopy orthogroups is 0.\n")
 		f_AG_calculation_results.write("AG is 0")
 		sys.exit()
 
-	f_log.write("AG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups is " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
+	f_log.write("\nAG is " + str(n_AG) + ". Number of genes in single-copy orthogroups is " + str(n_number_of_single_copy_genes_found_in_the_assembly) + ". Number of genes in true multicopy orthogroups is " + str(n_number_of_true_multicopy_genes) + ". Number of genes in false multicopy orthogroups is " + str(n_number_of_false_multicopy_genes) +".\n")
 	f_AG_calculation_results.write("AG is " + str(n_AG))
 	
 	f_log.close()

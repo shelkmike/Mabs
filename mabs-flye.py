@@ -117,7 +117,7 @@ if __name__ == '__main__':
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	s_additional_flye_parameters = "" #дополнительные параметры Flye.
 	
-	s_Mabs_version = "2.27"
+	s_Mabs_version = "2.28"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
@@ -132,7 +132,7 @@ Main options:
 
 [any of the above files may be in FASTQ or FASTA, gzipped or not]
 
-4) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly, use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-flye will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+4) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-flye will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
 5) --threads        Number of CPU threads to be used by Mabs-flye. The default value is 10.
 6) --output_folder        Output folder for Mabs-flye results. The default is "Mabs_results".
 7) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-flye use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
@@ -768,12 +768,11 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	Теперь нужно определить, какой опцией Flye давать риды (--nano-raw, --nano-corr или другие). Если пользователь хотя бы один файл дал в формате FASTA, то использую --nano-raw, за исключением случая, когда пользователь дал только риды HiFi — тогда использую --pacbio-hifi. Если все риды в формате FASTQ, то я делаю следующее:
 	I) Считаю точность для каждого рида, используя строку с качеством. "Точность" выражается в процентах.
 	II) Считаю медианное значение по значениям из "I)"
-	III) В завимисимости от значения из "II)" выбираю, какой опцией давать риды программе Flye. Задавая эти числа, я ориентировался на описания опций в https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md
+	III) В завимисимости от значения из "II)" выбираю, какой опцией давать риды программе Flye. Задавая эти числа, я ориентировался на описания опций в https://github.com/fenderglass/Flye/blob/flye/docs/USAGE.md , а также на мой опыт сборки по ридам Нанопора, имеющим высокую (около 99.2%) точность.
 	Соответствие между медианной точностью ридов, и выбранным режимом Flye:
 	(0; 95] - --nano-raw
-	(95; 97] - --nano-hq
-	(97; 99] - --nano-corr
-	(99; 100] - --pacbio-hifi
+	(95; 99.8] - --nano-hq
+	(99.8; 100] - --pacbio-hifi
 	Если среди файлов с ридами, которые пользователь дал программе, хотя бы один в формате FASTA, то Mabs пишет в логи "WARNING: you have provided reads in FASTA, while FASTQ is recommended. Using reads in FASTA may reduce the accuracy of the assembly."
 	
 	Для скорости, медианная точность считается только по ридам, относящимся к генам BUSCO.
@@ -823,11 +822,9 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 		
 		if n_median_accuracy_of_reads <= 95:
 			s_flye_option_to_provide_reads_with = "--nano-raw"
-		elif (n_median_accuracy_of_reads > 95) and (n_median_accuracy_of_reads <= 97):
+		elif (n_median_accuracy_of_reads > 95) and (n_median_accuracy_of_reads <= 99.8):
 			s_flye_option_to_provide_reads_with = "--nano-hq"
-		elif (n_median_accuracy_of_reads > 97) and (n_median_accuracy_of_reads <= 99):
-			s_flye_option_to_provide_reads_with = "--nano-corr"
-		elif n_median_accuracy_of_reads > 99:
+		elif n_median_accuracy_of_reads > 99.8:
 			s_flye_option_to_provide_reads_with = "--pacbio-hifi"
 		else:
 			o_current_time_and_date = datetime.datetime.now()
@@ -885,6 +882,13 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	n_number_of_the_point_under_analysis = 0 #порядковый номер точки, которую я анализирую. Считается от 1.
 	
 	#Тут я описываю функцию, которой на вход даются значения assemble_ovlp_divergence и repeat_graph_ovlp_divergence, а выдаёт функция -AG. С минусом спереди — потому, что scipy.optimize.minimize ищет минимум, а не максимум. Поэтому для максимизации AG нужно минимизировать -AG. Два параметра, дающихся на вход, я даю через список (потому что так нужно scipy.optimize.minimize).
+	
+	"""
+	Результаты, которые получаются у этой функции, я буду записывать в словарь словарей. В нём первый ключ это номер рассматриваемой точки, а второй ключ это или строка "assemble_ovlp_divergence", или строка "repeat_graph_ovlp_divergence", или строка "AG". Значением является, соответственно, или то, какой assemble_divergence_relative использовался в этой точке; или то, какой repeat_graph_ovlp_divergence использовался в этой точке; или то, какой AG получился в этой точке.
+	"""
+	
+	dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic = {}
+	
 	def function_two_Flye_parameters_to_minus_AG(l_two_input_parameters):
 		global n_number_of_the_point_under_analysis #Без этой строки возникает ошибка "local variable 'n_number_of_the_point_under_analysis' referenced before assignment", потому что без этой строки нельзя модифицировать ("n_number_of_the_point_under_analysis += 1") глобальную переменную внутри функции.
 		
@@ -893,6 +897,11 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 		n_repeat_graph_ovlp_divergence = round(l_two_input_parameters[1], 5)
 		
 		n_number_of_the_point_under_analysis += 1
+		
+		dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis] = {}
+		
+		dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis]["assemble_ovlp_divergence"] = n_assemble_ovlp_divergence
+		dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis]["repeat_graph_ovlp_divergence"] = n_repeat_graph_ovlp_divergence
 		
 		o_current_time_and_date = datetime.datetime.now()
 		s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
@@ -930,6 +939,8 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 		f_log.write(s_current_time_and_date + "\n")
 		f_log.write("AG for point " + str(n_number_of_the_point_under_analysis) + " is " + str(n_AG) + "\n\n")
 		
+		dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis]["AG"] = n_AG
+		
 		return(-n_AG)
 	
 	#Теперь, собственно, делаю сборку, проверяя максимум n_maximum_number_of_points_to_try точек
@@ -944,9 +955,19 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	"""
 	o_optimization_results = scipy.optimize.minimize(fun = function_two_Flye_parameters_to_minus_AG, x0 = [n_max_divergence_between_reads_during_disjointig_construction__when_Flye_is_run_with_default_parameters, n_repeat_graph_ovlp_divergence__when_Flye_is_run_with_default_parameters], method = "Nelder-Mead", bounds = ((0, 1), (0, 0.5)), options = {"maxfev" : n_maximum_number_of_points_to_try, "initial_simplex" : [[n_max_divergence_between_reads_during_disjointig_construction__when_Flye_is_run_with_default_parameters, n_repeat_graph_ovlp_divergence__when_Flye_is_run_with_default_parameters], [2 * n_max_divergence_between_reads_during_disjointig_construction__when_Flye_is_run_with_default_parameters, 2 * n_repeat_graph_ovlp_divergence__when_Flye_is_run_with_default_parameters], [n_max_divergence_between_reads_during_disjointig_construction__when_Flye_is_run_with_default_parameters, n_repeat_graph_ovlp_divergence__when_Flye_is_run_with_default_parameters / 2]]}) #Не понял, чем maxfev отличается от maxiter. Но оптимизация останавливается на n_maximum_number_of_points_to_try именно если указать это число как maxfev, а не как maxiter.
 	
-	n_optimal_assemble_ovlp_divergence = o_optimization_results.x[0]
-	n_optimal_repeat_graph_ovlp_divergence = o_optimization_results.x[1]
-	n_maximum_AG = - int(o_optimization_results.fun) #конвертирую в int, потому что scipy.optimize.minimize выдаёт это число во float (хоть это всегда и целый float). А в логи я его хочу записать в виде int.
+	#Смотрю, какая из точек дала наиболее высокий AG. Если таких точек было несколько, то беру последнюю. Потому что, возможно, в процессе максимизации AG Mabs-flye приблизился к той комбинации assemble_ovlp_divergence и repeat_graph_ovlp_divergence, которая даёт наилучшую сборку.
+	n_maximum_AG = -100 #-100 это плейсхолдер.
+	n_optimal_assemble_ovlp_divergence = -100 #-100 это плейсхолдер
+	n_optimal_repeat_graph_ovlp_divergence = -100 #-100 это плейсхолдер
+	for n_number_of_the_point_under_analysis in range(1, n_maximum_number_of_points_to_try + 1):
+		n_assemble_ovlp_divergence = dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis]["assemble_ovlp_divergence"]
+		n_repeat_graph_ovlp_divergence = dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis]["repeat_graph_ovlp_divergence"]
+		n_AG = dd_point_number__and__point_characteristic_name__to_the_value_of_the_characteristic[n_number_of_the_point_under_analysis]["AG"]
+		
+		if n_AG >= n_maximum_AG:
+			n_maximum_AG = n_AG
+			n_optimal_assemble_ovlp_divergence = n_assemble_ovlp_divergence
+			n_optimal_repeat_graph_ovlp_divergence = n_repeat_graph_ovlp_divergence
 	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")

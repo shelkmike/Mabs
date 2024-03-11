@@ -58,24 +58,14 @@ fi
 #Copying the content of "Additional_src" to "Additional"
 cp -rp ./Additional_src ./Additional
 
-#Bedtools is pre-compiled, I just change permissions.
-chmod 755 ./Additional/Bedtools/bedtools
-
-#DIAMOND is pre-compiled, I just change permissions.
-chmod 755 ./Additional/DIAMOND/diamond
+#Changing permissions of all files to 755. If a user copied the files of Mabs to a Linux machine through a Windows machine, all files will lost their permissions, which will lead to errors.
+chmod --recursive 755 ./Additional/
 
 #Installing HMMER
 cd ./Additional/HMMER
-chmod 755 ./configure
 ./configure
 make
 cd ../..
-
-#MetaEuk is pre-compiled, I just change permissions. The pre-compiled version is for SSE4.1. Actually, there are MetaEuk versions for newer CPUs, but since MetaEuk is not a time-limiting step of Mabs, I don't provide them.
-chmod 755 ./Additional/MetaEuk/metaeuk-linux-sse41
-
-#Minimap2 is pre-compiled, I just change permissions.
-chmod 755 ./Additional/Minimap2/minimap2
 
 #Installing Modified_hifiasm. It is a special version of Hifiasm made for Mabs. Compared to the ordinary Hifiasm, it has an additional option "--only-primary" that forces an assembly to terminate after the GFA file with primary contigs has been made. This preliminary termination allows to save some time if only primary contigs are needed.
 cd ./Additional/Modified_hifiasm
@@ -91,9 +81,6 @@ cd ../..
 cd ./Additional/Flye
 make
 cd ../..
-
-#Proovframe is written in Perl, it does not require to be compiled. I just change permissions. The source code of Proovframe was slightly modified by me — mostly for Proovframe to be able to find DIAMOND provided with Mabs.
-chmod 755 ./Additional/Proovframe/bin/*
 
 #Making mabs-hifiasm.py, mabs-flye.py and calculate_AG.py executable
 chmod 755 mabs-hifiasm.py mabs-flye.py calculate_AG.py

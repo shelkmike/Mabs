@@ -98,7 +98,7 @@ if __name__ == '__main__':
 	
 	s_additional_hifiasm_parameters = "" #дополнительные параметры Hifiasm.
 	
-	s_Mabs_version = "2.27"
+	s_Mabs_version = "2.28"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
@@ -114,7 +114,7 @@ Main options:
 
 [any of the above files may be in FASTQ or FASTA, gzipped or not]
 
-5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly, use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-hifiasm will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-hifiasm will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
 6) --threads        Number of CPU threads to be used by Mabs-hifiasm. The default value is 10.
 7) --output_folder        Output folder for Mabs-hifiasm results. The default is "Mabs_results".
 8) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
