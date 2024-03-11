@@ -18,7 +18,9 @@ Mabs is, on average, 3 times slower than Hifiasm or Flye, but usually produces b
 - [calculate_AG](#calculate_ag)
 - [Questions and Answers](#questions-and-answers)
 <br><br>
+
 ## Installation
+
 Mabs requires Python 3, Perl 5, GCC, Zlib-dev, Make.<br>
 Mabs should be installed in two steps:<br>
 1. Install Python libraries Pandas, Plotnine, SciPy. This can be done, for example, by running the following two commands one after the other:<br>
@@ -30,9 +32,13 @@ Mabs should be installed in two steps:<br>
 &nbsp;<br>
 Alternatively, you can use a Singularity container with Mabs: [https://mikeshelk.site/Diff/Mabs_distribution/Singularity_containers/](https://mikeshelk.site/Diff/Mabs_distribution/Singularity_containers/) . To see information on how to use Mabs from the container, run a command "singularity run-help mabs.sif".
 <br><br>
+
 ## How to use
+
 Two main components of Mabs are Mabs-hifiasm and Mabs-flye. Mabs-hifiasm works as a parameter optimizer of Hifiasm, while Mabs-flye works as a parameter optimizer of Flye.
+
 #### a) Mabs-hifiasm
+
 Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can be used for very accurate (accuracy ≥99%) Nanopore reads, as their characteristics are similar to characteristics of HiFi reads. <br>
 To run Mabs-hifiasm, a user should provide two values:
 1. A path to reads, via the option "--pacbio_hifi_reads".
@@ -55,7 +61,9 @@ Example 1:<br>
 Example 2:<br>
 `mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads ultralong_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40`
 <br><br>
+
 #### b) Mabs-flye
+
 Mabs-flye is intended for Nanopore reads and PacBio CLR reads (also known as "old PacBio reads"). Similarly to Mabs-hifiasm, Mabs-flye requires two values:
 1. A path to reads, provided via options "--nanopore_reads", "--pacbio_clr_reads" or "--pacbio_hifi_reads". If you have several read datasets created by different technologies, these options can be used simultaneously. Keep in mind that if you have only HiFi reads, it's usually better to use Mabs-hifiasm.
 2. A BUSCO dataset, provided via options "--download_busco_dataset" or "--local_busco_dataset". For details, see "2." in the description of Mabs-hifiasm above.
@@ -71,14 +79,18 @@ Example 1:<br>
 Example 2:<br>
 `mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hifi_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40`
 <br><br>
+
 #### c) The output of Mabs
+
 Both Mabs-hifiasm and Mabs-flye have a similar output structure. Both of them create a folder which, by default, is named "Mabs_results". The name can be changed via the "--output_folder" option. The two main files that a user may need are:
 1) ./Mabs_results/mabs_log.txt<br>
 This file contains information on how Mabs-hifiasm or Mabs-flye run and whether they encountered any problems.
 2) ./Mabs_results/The_best_assembly/assembly.fasta<br>
 These are the contigs you need.
 <br><br>
+
 #### d) Testing Mabs-hifiasm and Mabs-flye
+
 If you are not sure whether Mabs-hifiasm and Mabs-flye have been installed properly, you can run
 `mabs-hifiasm.py --run_test`
 or
@@ -86,7 +98,9 @@ or
 
 These two commands assemble the first chromosome of <i>Saccharomyces cerevisiae</i>, which is approximately 200 kbp. If after the assembly finishes you see a file ./Mabs_results/The_best_assembly/assembly.fasta which is slightly larger than 200 KB, Mabs works correctly.
 <br><br>
+
 ## calculate_AG
+
 Besides Mabs-hifiasm and Mabs-flye, Mabs contains a third tool, named **calculate_AG**. Its purpose is to assess the genome assembly quality.
 <br><br>
 calculate_AG is used internally by Mabs-hifiasm and Mabs-flye, but also can be used externally if a user wants to assess the quality of some assembly.<br><br>
@@ -107,13 +121,19 @@ For more options, run<br>
 <br><br>
 The main file produced by calculate_AG is ./AG_calculation_results/AG.txt . It contains a single number which is the AG.
 In addition, calculate_AG produces figures <i>gene_coverage_distribution.svg</i> and <i>gene_coverage_distribution.png</i> which look like this:<br>
-<p align="center"><img src="https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_bad_assembly.png?" width="400"></p>
+<p align="center">
+  <img src="https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_bad_assembly.png?" width="400">
+</p>
 This type of diagrams is called sinaplot, see https://cran.r-project.org/web/packages/sinaplot/vignettes/SinaPlot.html . The sinaplot produced by calculate_AG helps to evaluate the assembly quality visually. While the coverage distribution of genes from single-copy orthogroups is unimodal, the coverage distribution of genes from multicopy orthogroups can be bimodal because genes that were erroneously duplicated have **twice as low** coverage as they should have. In the perfect assembly, the coverage distribution of genes from multicopy orthogroups is identical to the coverage distribution of genes from single-copy orthogroups. The picture above is for a rather bad assembly. Below is the picture made by calculate_AG for a better assembly of the same genome:<br><br>
-<p align="center"><img src="https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_good_assembly.png?" width="400"></p><br>
+<p align="center">
+  <img src="https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_good_assembly.png?" width="400">
+</p><br>
 The right distribution usually has fewer genes than the left (because BUSCO orthogroups are usually single-copy). However, Calculate_AG draws these two distribution such that they have the same area (but different density of points), to make a visual comparison of their shapes easier.<br><br>
 The recommended usage of calculate_AG is to compare the quality of assemblies of a single genome made by different genome assemblers, or made by a single assembler with different parameters. Besides the value of AG (in the file ./AG_calculation_results/AG.txt), calculate_AG also writes the exact numbers of genes in single-copy orthogroups, in true multicopy orthogroups, and in false multicopy orthogroups; the corresponding values can be found at the end of the file ./AG_calculation_results/log.txt.
 <br><br>
+
 ## Questions and Answers
+
 1. Should assemblies produced by Mabs be polished afterwards?<br>
 The assemblies made by Mabs-hifiasm are accurate already. The assemblies made by Mabs-flye require polishing by accurate reads. "Accurate reads" are reads of Illumina, MGI, or PacBio HiFi. Good programs for polishing are, for example, [HyPo](https://github.com/kensung-lab/hypo), [POLCA](https://github.com/alekseyzimin/masurca), [Racon](https://github.com/lbcb-sci/racon).
 2. How to assemble a genome using high-accuracy Nanopore reads?<br>
