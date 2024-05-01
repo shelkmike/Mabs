@@ -49,9 +49,9 @@ Alternatively, you can download a dataset to your computer manually, and use the
 To see the full list of options, run
 `mabs-hifiasm.py --help`
 
-Since Mabs-hifiasm is based on Hifiasm (https://github.com/chhylp123/hifiasm), it can use paired-end Hi-C reads in addition to long reads. Provide trimmed Hi-C reads with options "--short_hi-c_reads_R1" and "--short_hi-c_reads_R2".
+Since Mabs-hifiasm is based on Hifiasm (https://github.com/chhylp123/hifiasm), it can use paired-end Hi-C reads for haplotype phasing (but not for scaffolding). Provide trimmed Hi-C reads with options "--short_hi-c_reads_R1" and "--short_hi-c_reads_R2". If you want to do Hi-C scaffolding, you can use YaHS (https://github.com/c-zhou/yahs) with contigs made by Mabs.
 
-Mabs-hifiasm can also use ultra-long (N50 > 50 kbp) Nanopore reads. Provide them with the option "--ultralong_nanopore_reads".
+Mabs-hifiasm can use ultra-long (N50 > 50 kbp) Nanopore reads to make assembly more contiguous. Provide them with the option "--ultralong_nanopore_reads".
 
 Examples of using Mabs-hifiasm.
 
