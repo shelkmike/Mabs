@@ -128,7 +128,7 @@ This type of diagrams is called sinaplot, see https://cran.r-project.org/web/pac
 <p align="center">
   <img src="https://mikeshelk.site/Diff/Files_for_GitHub/Mabs/a_relatively_good_assembly.png?" width="400">
 </p><br>
-The right distribution usually has fewer genes than the left (because BUSCO orthogroups are usually single-copy). However, Calculate_AG draws these two distribution such that they have the same area (but different density of points), to make a visual comparison of their shapes easier.<br><br>
+The right distribution usually has fewer genes than the left (because BUSCO orthogroups are usually single-copy). However, calculate_AG draws these two distribution such that they have the same area (but different density of points), to make a visual comparison of their shapes easier.<br><br>
 The recommended usage of calculate_AG is to compare the quality of assemblies of a single genome made by different genome assemblers, or made by a single assembler with different parameters. Besides the value of AG (in the file ./AG_calculation_results/AG.txt), calculate_AG also writes the exact numbers of genes in single-copy orthogroups, in true multicopy orthogroups, and in false multicopy orthogroups; the corresponding values can be found at the end of the file ./AG_calculation_results/log.txt.
 <br><br>
 
