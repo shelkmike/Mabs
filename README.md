@@ -39,7 +39,7 @@ Two main components of Mabs are Mabs-hifiasm and Mabs-flye. Mabs-hifiasm works a
 
 #### a) Mabs-hifiasm
 
-Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can be used for very accurate (accuracy ≥99%) Nanopore reads, as their characteristics are similar to characteristics of HiFi reads. <br>
+Mabs-hifiasm is intended for PacBio HiFi (also known as CCS) reads. Also, it can be used for very accurate (accuracy ≥99%) Nanopore reads, as their characteristics are similar to characteristics of PacBio HiFi reads. <br>
 To run Mabs-hifiasm, a user should provide two values:
 1. A path to reads, via the option "--pacbio_hifi_reads".
 2. A BUSCO dataset. In the process of parameters optimization, Mabs uses a BUSCO dataset. The dataset can be provided using either the option "--download_busco_dataset", or the option "--local_busco_dataset".
@@ -49,9 +49,11 @@ Alternatively, you can download a dataset to your computer manually, and use the
 To see the full list of options, run
 `mabs-hifiasm.py --help`
 
+The recommended way to assemble a genome from reads made on 10.4.1 Nanopore flow cells is to perform error correction with "dorado correct" ([https://github.com/nanoporetech/dorado](https://github.com/nanoporetech/dorado)) and then give the reads to Mabs-hifiasm via the option "--pacbio_hifi_reads".
+
 Since Mabs-hifiasm is based on Hifiasm (https://github.com/chhylp123/hifiasm), it can use paired-end Hi-C reads for haplotype phasing (but not for scaffolding). Provide trimmed Hi-C reads with options "--short_hi-c_reads_R1" and "--short_hi-c_reads_R2". If you want to do Hi-C scaffolding, you can use YaHS (https://github.com/c-zhou/yahs) with contigs made by Mabs.
 
-Mabs-hifiasm can use ultra-long (N50 > 50 kbp) Nanopore reads to make assembly more contiguous. Provide them with the option "--ultralong_nanopore_reads".
+Mabs-hifiasm can also use ultra-long (N50 > 50 kbp) low-quality Nanopore reads to make assembly more contiguous. Provide them with the option "--ultralong_nanopore_reads".
 
 Examples of using Mabs-hifiasm.
 
@@ -64,7 +66,7 @@ Example 2:<br>
 
 #### b) Mabs-flye
 
-Mabs-flye is intended for Nanopore reads and PacBio CLR reads (also known as "old PacBio reads"). Similarly to Mabs-hifiasm, Mabs-flye requires two values:
+Mabs-flye is intended for PacBio CLR reads (also known as "old PacBio reads") and low-quality Nanopore reads. Similarly to Mabs-hifiasm, Mabs-flye requires two values:
 1. A path to reads, provided via options "--nanopore_reads", "--pacbio_clr_reads" or "--pacbio_hifi_reads". If you have several read datasets created by different technologies, these options can be used simultaneously. Keep in mind that if you have only HiFi reads, it's usually better to use Mabs-hifiasm.
 2. A BUSCO dataset, provided via options "--download_busco_dataset" or "--local_busco_dataset". For details, see "2." in the description of Mabs-hifiasm above.
 
@@ -137,7 +139,8 @@ The recommended usage of calculate_AG is to compare the quality of assemblies of
 1. Should assemblies produced by Mabs be polished afterwards?<br>
 The assemblies made by Mabs-hifiasm are accurate already. The assemblies made by Mabs-flye require polishing by accurate reads. "Accurate reads" are reads of Illumina, MGI, or PacBio HiFi. Good programs for polishing are, for example, [HyPo](https://github.com/kensung-lab/hypo), [POLCA](https://github.com/alekseyzimin/masurca), [Racon](https://github.com/lbcb-sci/racon).
 2. How to assemble a genome using high-accuracy Nanopore reads?<br>
-If you have Nanopore reads with really high accuracy (≥99%), I advise trying both Mabs-hifiasm and Mabs-flye.
+If you have Nanopore reads with really high accuracy (≥99%), I advise trying both Mabs-hifiasm and Mabs-flye.<br>
+In my experience, the best method to assemble a genome from reads made on 10.4.1 Nanopore flow cells is to perform read error correction with "dorado correct" ([https://github.com/nanoporetech/dorado](https://github.com/nanoporetech/dorado)) and then run Mabs-hifiasm providing the corrected Nanopore reads via the option "--pacbio_hifi_reads". This is because after "dorado correct", the accuracy of Nanopore reads becomes similar to the accuracy of PacBio HiFi reads.
 3. What is the program "Modified_hifiasm" used by Mabs?<br>
 Modified_hifiasm is a special version of Hifiasm, where I added an option "--only-primary". With this option, Modified_hifiasm stops after creating the file with the primary assembly. Usage of Modified_hifiasm makes Mabs-hifiasm faster than when using the original Hifiasm.
 4. What is the main downside of Mabs?<br>
