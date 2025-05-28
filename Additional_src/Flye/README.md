@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.9.3
+### Version: 2.9.5
 
 Flye is a de novo assembler for single-molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
@@ -25,6 +25,15 @@ Manuals
 
 Latest updates
 --------------
+
+Flye 2.9.5 release (27 Aug 2024)
+===============================
+* Python 3.12 support, Python 2 dropped
+
+Flye 2.9.4 release (14 May 2024)
+===============================
+* Minor technical changes
+
 
 ### Flye 2.9.3 release (28 November 2023)
 * Disjointig step speedup for `--nano-hq` mode
@@ -178,7 +187,7 @@ Publications
 Mikhail Kolmogorov, Derek M. Bickhart, Bahar Behsaz, Alexey Gurevich, Mikhail Rayko, Sung Bong
 Shin, Kristen Kuhn, Jeffrey Yuan, Evgeny Polevikov, Timothy P. L. Smith and Pavel A. Pevzner
 "metaFlye: scalable long-read metagenome assembly using repeat graphs", Nature Methods, 2020
-[doi:s41592-020-00971-x](https://doi.org/10.1038/s41592-020-00971-x)
+[doi:10.1038/s41592-020-00971-x](https://doi.org/10.1038/s41592-020-00971-x)
 
 Mikhail Kolmogorov, Jeffrey Yuan, Yu Lin and Pavel Pevzner, 
 "Assembly of Long Error-Prone Reads Using Repeat Graphs", Nature Biotechnology, 2019
@@ -200,5 +209,3 @@ has already been answered.
 
 If you are reporting a problem, please include the `flye.log` file and provide
 details about your dataset.
-
-In case you prefer personal communication, please contact Mikhail at mikolmogorov@gmail.com.

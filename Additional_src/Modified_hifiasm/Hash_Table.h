@@ -8,6 +8,11 @@
 
 #define WINDOW 375
 #define WINDOW_BOUNDARY 375
+#define WINDOW_HC 775
+///ONT high error
+// #define WINDOW_OHC 475
+#define WINDOW_OHC 375
+#define WINDOW_HC_FAST 512
 ///for one side, the first or last WINDOW_UNCORRECT_SINGLE_SIDE_BOUNDARY bases should not be corrected
 #define WINDOW_UNCORRECT_SINGLE_SIDE_BOUNDARY 25
 #define THRESHOLD  15
@@ -235,5 +240,21 @@ uint64_t lchain_qdp_mcopy(Candidates_list *cl, int64_t a_idx, int64_t a_n, int64
               uint32_t xid, int64_t xl, int64_t yl, int64_t quick_check, uint32_t apend_be, 
               int64_t gen_cigar, int64_t enable_mcopy, double mcopy_rate, int64_t mcopy_khit_cutoff, 
               int64_t khit_n);
+
+uint64_t lchain_qdp_mcopy_fast(Candidates_list *cl, int64_t a_idx, int64_t a_n, int64_t des_idx, 
+              Chain_Data* dp, overlap_region_alloc* res, int64_t max_skip, int64_t max_iter, 
+              int64_t max_dis, double chn_pen_gap, double chn_pen_skip, double bw_rate, 
+              uint32_t xid, int64_t xl, int64_t yl, int64_t quick_check, uint32_t apend_be, 
+              int64_t gen_cigar, int64_t enable_mcopy, double mcopy_rate, int64_t mcopy_khit_cutoff, 
+              int64_t khit_n);
+
+#define kv_pushp_ol(type, v, p) do {									\
+		if ((v).length == (v).size) {										\
+			(v).list = (type*)realloc((v).list, sizeof(type)*((v).size?((v).size<<1):(2)));	\
+            memset((v).list+(v).size, 0, sizeof(overlap_region)*(((v).size?((v).size<<1):2)-(v).size));\
+            (v).size = (v).size?((v).size<<1):(2);							\
+		}															\
+		*(p) = &((v).list[(v).length++]); \
+	} while (0)
 
 #endif

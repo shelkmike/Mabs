@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define HA_VERSION "0.19.8-r603"
+#define HA_VERSION "0.25.0-r726"
 
 #define VERBOSE 0
 
@@ -75,6 +75,7 @@ typedef struct {
     int load_index_from_disk;
     int write_index_to_disk;
     int number_of_round;
+    int number_of_pround;
     int adapterLen;
     int clean_round;
     int roundID;
@@ -84,6 +85,7 @@ typedef struct {
     int min_overlap_coverage;
     int max_short_tip;
     int max_short_ul_tip;
+    int max_contig_tip;
     int min_cnt;
     int mid_cnt;
     int purge_level_primary;
@@ -136,6 +138,7 @@ typedef struct {
     int64_t infor_cov, s_hap_cov, trio_cov_het_ovlp;
     double ul_error_rate, ul_error_rate_low, ul_error_rate_hpc;
     int32_t ul_ec_round;
+    int32_t ul_mod;
     uint8_t is_dbg_het_cnt;
     uint8_t is_low_het_ul;
     uint8_t is_base_trans;
@@ -154,6 +157,20 @@ typedef struct {
     uint64_t self_scaf_reliable_min;
     int64_t self_scaf_gap_max;
     int64_t somatic_cov;
+
+    char *telo_motif;
+    int64_t telo_pen;
+    int64_t telo_drop;
+    int64_t telo_mic_sc;
+    
+    uint64_t is_ont;
+    uint64_t is_sc;
+    uint64_t chemical_cov;
+    uint64_t chemical_flank;
+
+    int64_t rl_cut;
+    int64_t sc_cut;
+
 } hifiasm_opt_t;
 
 extern hifiasm_opt_t asm_opt;

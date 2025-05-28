@@ -177,7 +177,7 @@ public:
 			return *this += -n;
 		}
 
-		BFIterator operator+(difference_type n) 
+		BFIterator operator+(difference_type n) const
 		{
 			auto tmp = *this;
 			return tmp += n;
@@ -188,13 +188,13 @@ public:
 			return rhs + lhs;
 		}
 		
-        BFIterator operator-(difference_type n) 
+        BFIterator operator-(difference_type n) const
 		{
 			auto tmp = *this;
 			return tmp -= n;
 		}
 
-        difference_type operator-(const BFIterator& rhs) 
+        difference_type operator-(const BFIterator& rhs) const
 		{
 			return difference_type(ChunkSize) * (_map - rhs._map - 1) + 
 						(_chunkCur - _chunkStart) +
@@ -239,8 +239,8 @@ public:
 
 		T& operator[](difference_type n) {return *(*this += n);}
 
-		T& operator*() {return *_chunkCur;}
-        T* operator->() {return _chunkCur;}
+		T& operator*() const {return *_chunkCur;}
+        T* operator->() const {return _chunkCur;}
 
     	bool operator==(const BFIterator& rhs) const
 		{

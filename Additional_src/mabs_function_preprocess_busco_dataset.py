@@ -57,7 +57,7 @@ def function_preprocess_busco_dataset(s_path_to_a_local_busco_dataset, s_number_
 		#если пользователь указал больше ортогрупп, чем есть в этом наборе BUSCO, то Mabs берёт все ортогруппы, и, вдобавок, пишет Warning в основной файл с логами.
 		elif (n_number_of_busco_orthogroups_to_use > n_full_number_of_busco_orthogroups_in_the_downloaded_dataset):
 			os.system("cp -r " + s_path_to_a_local_busco_dataset + " " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use")
-			f_general_logfile.write("Warning: you directed Mabs to use " + str(n_number_of_busco_orthogroups_to_use) + " BUSCO orthogroups. However, the dataset " + s_path_to_a_local_busco_dataset + " contains only " + str(n_full_number_of_busco_orthogroups_in_the_downloaded_dataset) + " orthogroups. Hence, Mabs will use all " + str(n_full_number_of_busco_orthogroups_in_the_downloaded_dataset) + " orthogroups. This is not an error and will not lead to incorrect results of Mabs.")
+			f_general_logfile.write("Warning: you directed Mabs to use " + str(n_number_of_busco_orthogroups_to_use) + " BUSCO orthogroups. However, the dataset " + s_path_to_a_local_busco_dataset + " contains only " + str(n_full_number_of_busco_orthogroups_in_the_downloaded_dataset) + " orthogroups. Therefore, Mabs will use all " + str(n_full_number_of_busco_orthogroups_in_the_downloaded_dataset) + " orthogroups. This is not an error and will not lead to incorrect results of Mabs.\n\n")
 			
 			#конкатенирую все файлы hmm в один 
 			os.system("cat " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use/hmms/*.hmm >" + s_path_to_the_output_folder + "/BUSCO_dataset_to_use/concatenated_profile_HMMs_of_orthogroups.hmm")

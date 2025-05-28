@@ -104,6 +104,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, read_platfo
                 logger.disabled = logger_state
             open(stats_file, "w").write("#seq_name\tlength\tcoverage\n")
             open(polished_file, "w")
+            gzip.open(bed_coverage, "wt")
             return polished_file, stats_file
 
         #####

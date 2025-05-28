@@ -35,6 +35,9 @@ import flye.utils.fasta_parser as fp
 from flye.repeat_graph.repeat_graph import RepeatGraph
 from flye.six.moves import range
 
+if sys.version_info[0] == 2:
+    raise Exception("Python 2 is unsupported")
+
 logger = logging.getLogger()
 
 class ResumeException(Exception):
@@ -406,12 +409,13 @@ def _set_genome_size(args):
         args.genome_size = human2bytes(args.genome_size.upper())
 
 
-def _run_polisher_only(args):
+def _run_polisher_only(args, output_progress=True):
     """
     Runs standalone polisher
     """
-    logger.info("Running Flye polisher")
-    logger.debug("Cmd: %s", " ".join(sys.argv))
+    if output_progress:
+        logger.info("Running Flye polisher")
+        logger.debug("Cmd: %s", " ".join(sys.argv))
     bam_input = False
 
     for read_file in args.reads:
@@ -434,8 +438,9 @@ def _run_polisher_only(args):
 
     pol.polish(args.polish_target, args.reads, args.out_dir,
                args.num_iters, args.threads, args.platform,
-               args.read_type, output_progress=True)
-    logger.info("Done!")
+               args.read_type, output_progress)
+    if output_progress:
+        logger.info("Done!")
 
 
 def _run(args):

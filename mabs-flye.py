@@ -106,7 +106,7 @@ if __name__ == '__main__':
 	s_path_to_nanopore_reads = "" #путь к файлу с ридами Нанопора.
 	s_path_to_pacbio_hifi_reads = "" #путь к файлу с ридами PacBio HiFi.
 	s_path_to_pacbio_clr_reads = "" #путь к файлу с ридами PacBio CLR.
-	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/Latest/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
+	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
 	s_path_to_a_local_busco_dataset = "" #путь к архивированному gzip файлу с датасетом BUSCO на диске или разархивированной папке с датасетом BUSCO на диске.
 	n_number_of_cpu_threads_to_use = 10 #количество ядер, которые будет использовать Mabs-flye.
 	s_path_to_the_output_folder = "./Mabs_results" #путь к выходной папке Mabs-flye.
@@ -117,41 +117,41 @@ if __name__ == '__main__':
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	s_additional_flye_parameters = "" #дополнительные параметры Flye.
 	
-	s_Mabs_version = "2.28"
+	s_Mabs_version = "2.29"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
-	#если нет ни одного аргумента командной строки, или есть аргумент командной строки --help, то печатаю хелп
+	#если нет ни одного аргумента командной строки, или есть аргумент командной строки --help, то печатаю хелп . То, что между \033[93m и \033[0m , получается жёлтого цвета (см. https://stackoverflow.com/a/287944).
 	if (len(sys.argv) == 1) or re.search(r"\s\-\-help", s_command_line):
 		print("""Mabs-flye, a program for genome assembly.
 
 Main options:
-1) --nanopore_reads        Path to Nanopore reads.
-2) --pacbio_clr_reads        Path to PacBio CLR reads, also known as "old PacBio" reads.
-3) --pacbio_hifi_reads        Path to PacBio HiFi reads, also known as CCS reads.
+\033[93m1)\033[0m --nanopore_reads        Path to Nanopore reads.
+\033[93m2)\033[0m --pacbio_clr_reads        Path to PacBio CLR reads, also known as "old PacBio" reads.
+\033[93m3)\033[0m --pacbio_hifi_reads        Path to PacBio HiFi reads, also known as CCS reads.
 
 [any of the above files may be in FASTQ or FASTA, gzipped or not]
 
-4) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-flye will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
-5) --threads        Number of CPU threads to be used by Mabs-flye. The default value is 10.
-6) --output_folder        Output folder for Mabs-flye results. The default is "Mabs_results".
-7) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-flye use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
-8) --maximum_number_of_points_to_try        The maximum number of combinations of Flye parameters to be tried by Mabs-flye using the Nelder-Mead algorithm. The default value is 10. Increasing the value of this parameter will increase the computation time but may increase the accuracy of the results.
-9) --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
-10) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
-11) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
-12) --additional_flye_parameters        A string with additional parameters to be passed to Flye, enclosed in square brackets. Example: "--additional_flye_parameters [--scaffold --min-overlap 20000]".
+\033[93m4)\033[0m --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2024-01-08.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2024-01-08.tar.gz". Mabs-flye will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+\033[93m5)\033[0m --threads        Number of CPU threads to be used by Mabs-flye. The default value is 10.
+\033[93m6)\033[0m --output_folder        Output folder for Mabs-flye results. The default is "Mabs_results".
+\033[93m7)\033[0m --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-flye use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
+\033[93m8)\033[0m --maximum_number_of_points_to_try        The maximum number of combinations of Flye parameters to be tried by Mabs-flye using the Nelder-Mead algorithm. The default value is 10. Increasing the value of this parameter will increase the computation time but may increase the accuracy of the results.
+\033[93m9)\033[0m --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
+\033[93m10)\033[0m --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
+\033[93m11)\033[0m --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2024-01-08.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
+\033[93m12)\033[0m --additional_flye_parameters        A string with additional parameters to be passed to Flye, enclosed in square brackets. Example: "--additional_flye_parameters [--scaffold --min-overlap 20000]".
 
 Informational options:
-13) --help        Print this help.
-14) --version        Print the version of Mabs-flye.
-15) --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
+\033[93m13)\033[0m --help        Print this help.
+\033[93m14)\033[0m --version        Print the version of Mabs-flye.
+\033[93m15)\033[0m --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
 
 Example 1:
-mabs-flye.py --nanopore_reads nanopore_reads.fastq --download_busco_dataset eudicots_odb10.2020-09-10.tar.gz --threads 40
+mabs-flye.py --nanopore_reads nanopore_reads.fastq --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40
 
 Example 2:
-mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hifi_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40
+mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hifi_reads.fastq --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40
 		""")
 		sys.exit()
 
@@ -159,7 +159,7 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	if (len(sys.argv) == 2) and re.search(r"\s\-\-run_test", s_command_line):
 		s_path_to_nanopore_reads = s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/nanopore_test_reads.fastq.gz"
 		s_path_to_pacbio_clr_reads = s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_clr_test_reads.fastq.gz"
-		s_busco_dataset_name_online = "saccharomycetes_odb10.2020-08-05.tar.gz"
+		s_busco_dataset_name_online = "saccharomycetes_odb10.2024-01-08.tar.gz"
 		
 		#проверяю, были ли недоступны какие-то программы, которые нужны Mabs.
 		if len(l_unavailable_files_and_folders) != 0:
@@ -192,39 +192,39 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 		
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/
 		try:
-			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 			
 			#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 			try:
-				urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+				urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 			except:
-				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 		except:
 			time.sleep(5)
 			try:
-				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 				try:
-					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 				except:
-					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 			except:
 				time.sleep(5)
 				try:
-					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 					try:
-						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 
 					except:
-						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
+						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
 
 				except:
-					l_errors_in_command_line.append("Unfortunately, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible. To test Mabs-flye, download the file http://busco-data.ezlab.org/v5/data/lineages/saccharomycetes_odb10.2020-08-05.tar.gz and run the following command:\nmabs-flye.py --nanopore_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/nanopore_test_reads.fastq.gz --pacbio_clr_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/pacbio_clr_test_reads.fastq.gz --local_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz")
+					l_errors_in_command_line.append("Unfortunately, http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ is currently not accessible. To test Mabs-flye, download the file http://busco-data.ezlab.org/v5/data/lineages/saccharomycetes_odb10.2024-01-08.tar.gz and run the following command:\nmabs-flye.py --nanopore_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/nanopore_test_reads.fastq.gz --pacbio_clr_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/pacbio_clr_test_reads.fastq.gz --local_busco_dataset saccharomycetes_odb10.2024-01-08.tar.gz")
 		
 		if len(l_errors_in_command_line) != 0:
 			#Если ошибка была всего одна.
@@ -367,38 +367,38 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 			
 			s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-			#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+			#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/
 			try:
-				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 				
 				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 				try:
-					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 				except:
-					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 			except:
 				time.sleep(5)
 				try:
-					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 					try:
-						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 					except:
-						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 				except:
 					time.sleep(5)
 					try:
-						s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+						s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 						#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 						try:
-							urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+							urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 						except:
-							l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+							l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 					except:
-						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
+						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
 		
 		#если пользователь использовал --local_busco_dataset
 		o_regular_expression_results = re.search(r" --local_busco_dataset (\S+)", s_command_line_reduced)
@@ -530,12 +530,12 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	#Если пользователь дал больше 128 потоков, то ограничиваю количество потоков 128-ю, потому что Flye при попытке использовать больше 128 потоков вылетает с ошибкой, говоря, что не может использовать больше 128.
 	if n_number_of_cpu_threads_to_use > 128:
 		n_number_of_cpu_threads_to_use = 128
-		f_log.write("Warning: you indicated Mabs-flye to use " + str(n_number_of_cpu_threads_to_use) + " CPU threads. However, Flye cannot use more than 128 threads. Hence, the number of used threads will be limited to 128\n\n")
+		f_log.write("Warning: you indicated Mabs-flye to use " + str(n_number_of_cpu_threads_to_use) + " CPU threads. However, Flye cannot use more than 128 threads. Therefore, the number of used threads will be limited to 128\n\n")
 	
 	#если пользователь делает сборку тестового набора ридов Mabs-flye, то нужно написать подробности этого тестового набора.
 	if (len(sys.argv) == 2) and re.search(r"\s\-\-run_test", s_command_line):
 		f_log.write("As a test, Mabs-flye will assemble the first chromosome of Saccharomyces cerevisiae, which is approximately 200 kbp long, using 20x Nanopore reads and 10x PacBio CLR reads.\n\n")
-		f_log.write("The command \"mabs-flye.py --run_test\" is equivalent to the command \"mabs-flye.py --nanopore_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/nanopore_test_reads.fastq.gz --pacbio_clr_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_clr_test_reads.fastq.gz --download_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz\"\n")
+		f_log.write("The command \"mabs-flye.py --run_test\" is equivalent to the command \"mabs-flye.py --nanopore_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/nanopore_test_reads.fastq.gz --pacbio_clr_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_clr_test_reads.fastq.gz --download_busco_dataset saccharomycetes_odb10.2024-01-08.tar.gz\"\n")
 		f_log.write("If after Mabs-flye finishes you see a file ./Mabs_results/The_best_assembly/assembly.fasta which has a size of approximately 200 kilobytes, then the test succeeded.\n\n")
 	
 	#если пользователь сказал скачать файл с базой BUSCO или сам дал файл (но не папку), то разархивирую файл и меняю значение переменной s_path_to_a_local_busco_dataset с пути к файлу на путь к папке.
@@ -775,12 +775,12 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	(99.8; 100] - --pacbio-hifi
 	Если среди файлов с ридами, которые пользователь дал программе, хотя бы один в формате FASTA, то Mabs пишет в логи "WARNING: you have provided reads in FASTA, while FASTQ is recommended. Using reads in FASTA may reduce the accuracy of the assembly."
 	
-	Для скорости, медианная точность считается только по ридам, относящимся к генам BUSCO.
+	Для скорости, медианная точность считается по 1000 случайных ридов.
 	"""
 	
 	s_flye_option_to_provide_reads_with = "" #может быть "--nano-raw", "--nano-hq", "--nano-corr", "--pacbio-hifi".
 	
-	if not re.search(r"(\.fastq|\.fq|\.fastq\.gz|\.fq\.gz)$", s_path_to_all_long_reads_that_correspond_to_busco_genes, flags = re.IGNORECASE):
+	if not re.search(r"(\.fastq|\.fq|\.fastq\.gz|\.fq\.gz)$", s_path_to_the_file_with_all_long_reads, flags = re.IGNORECASE):
 		f_log.write("WARNING: you have provided reads in FASTA, while FASTQ is recommended. Using reads in FASTA may reduce the accuracy of the assembly.\n\n")
 		
 		#Если пользователь дал риды HiFi, то Flye будет использовать их с опцией --pacbio-hifi даже если риды в формате FASTA.
@@ -791,34 +791,14 @@ mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hi
 	else:
 		#Считаю медианный Phred score ридов. Считаю, что риды в формате Phred+33, потому что Phred+64 для длинных ридов, по-моему, никогда не использовался.
 		
-		if re.search(r"(\.gz)$", s_path_to_all_long_reads_that_correspond_to_busco_genes, flags = re.IGNORECASE):
-			f_infile = gzip.open(s_path_to_all_long_reads_that_correspond_to_busco_genes, mode = "rt")
-		else:
-			f_infile = open(s_path_to_all_long_reads_that_correspond_to_busco_genes, "r")
+		#Беру 1000 случайных ридов.
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/SeqTk/seqtk sample -s seed=1 " + s_path_to_the_file_with_all_long_reads + " 1000 > " + s_path_to_the_output_folder + "/1000_random_reads.fastq")
 		
-		#Список, элементы которого это точности ридов, выраженные в процентах. 100%, значит рид идеально точный. В списке по одному элементу на каждый рид.
-		l_accuracies_of_reads = []
-		
-		n_line_number = 0 #Номер строки. Считается от 1.
-		for s_line in f_infile:
-			n_line_number += 1
-			
-			if (n_line_number - 4) % 4 == 0:
-				s_quality_line = re.sub(r"[\r\n]+$", "", s_line)
-				
-				n_accuracy_of_the_read = 0 #Точность рида, в процентах. Сначала посчитаю просто как сумму точностей отдельных нуклеотидов, а потом поделю на длину рида.
-				
-				for s_character in s_quality_line:
-					n_Phred_score_corresponding_to_the_character = ord(s_character) - 33
-					n_accuracy_of_the_read += 100 * (1 - (10 ** (- n_Phred_score_corresponding_to_the_character / 10)))
-				
-				n_accuracy_of_the_read = n_accuracy_of_the_read / len(s_quality_line)
-				
-				l_accuracies_of_reads.append(n_accuracy_of_the_read)
-		
-		f_infile.close()
-		
-		n_median_accuracy_of_reads = statistics.median(l_accuracies_of_reads)
+		#Вычисляю медианную точность ридов.
+		s_median_accuracy_of_reads = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_median_read_accuracy.py " + s_path_to_the_output_folder + "/1000_random_reads.fastq")
+		#Чтобы получить медианную точность в виде числа, отрезаю "%" на конце.
+		s_median_accuracy_of_reads__without_the_percent_sign = re.sub(r"\%$", "", s_median_accuracy_of_reads)
+		n_median_accuracy_of_reads = float(s_median_accuracy_of_reads__without_the_percent_sign)
 		
 		if n_median_accuracy_of_reads <= 95:
 			s_flye_option_to_provide_reads_with = "--nano-raw"

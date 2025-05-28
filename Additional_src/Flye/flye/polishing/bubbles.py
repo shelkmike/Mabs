@@ -12,6 +12,7 @@ import logging
 from bisect import bisect
 from flye.six.moves import range
 from collections import defaultdict
+from queue import Queue
 
 import multiprocessing
 import traceback
@@ -93,11 +94,16 @@ def _thread_worker(aln_reader, chunk_feeder, contigs_info, err_mode,
             for b in ctg_bubbles:
                 b.position += ctg_region.start
 
-            with bubbles_file_lock:
-                _output_bubbles(ctg_bubbles, open(bubbles_file, "a"))
+            if bubbles_file_lock:
+                bubbles_file_lock.acquire()
+
+            _output_bubbles(ctg_bubbles, open(bubbles_file, "a"))
             results_queue.put((ctg_id, len(ctg_bubbles), num_long_bubbles,
                                num_empty, num_long_branch, aln_errors,
                                mean_cov))
+            
+            if bubbles_file_lock:
+                bubbles_file_lock.release()
 
             del profile
             del ctg_bubbles
@@ -116,20 +122,26 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     CHUNK_SIZE = 1000000
 
     contigs_fasta = fp.read_sequence_dict(contigs_path)
-    manager = multiprocessing.Manager()
+    manager = None if num_proc == 1 else multiprocessing.Manager()
     aln_reader = SynchronizedSamReader(alignment_path, contigs_fasta, manager,
                                        cfg.vals["max_read_coverage"], use_secondary=True)
     chunk_feeder = SynchonizedChunkManager(contigs_fasta, manager, chunk_size=CHUNK_SIZE)
 
-    results_queue = manager.Queue()
-    error_queue = manager.Queue()
-    bubbles_out_lock = multiprocessing.Lock()
-    #bubbles_out_handle = open(bubbles_out, "w")
+    if manager:
+        results_queue = manager.Queue()
+        error_queue = manager.Queue()
+        bubbles_out_lock = multiprocessing.Lock()
 
-    process_in_parallel(_thread_worker, (aln_reader, chunk_feeder, contigs_info, err_mode,
+        process_in_parallel(_thread_worker, (aln_reader, chunk_feeder, contigs_info, err_mode,
                          results_queue, error_queue, bubbles_out, bubbles_out_lock), num_proc)
-    #_thread_worker(aln_reader, chunk_feeder, contigs_info, err_mode,
-    #               results_queue, error_queue, bubbles_out, bubbles_out_lock)
+    else:
+        results_queue = Queue()
+        error_queue = Queue()
+        bubbles_out_lock = None
+
+        _thread_worker(aln_reader, chunk_feeder, contigs_info, err_mode,
+                results_queue, error_queue, bubbles_out, bubbles_out_lock)
+        
     if not error_queue.empty():
         raise error_queue.get()
 

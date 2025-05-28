@@ -37,6 +37,10 @@ private:
 
 	const int BUBBLES_CACHE = 100;
 
+	bool					  _verbose;
+	bool 					  _showProgress;
+	bool					  _hopoEnabled;
+
 	const SubstitutionMatrix  _subsMatrix;
 	const HopoMatrix 		  _hopoMatrix;
 	const GeneralPolisher 	  _generalPolisher;
@@ -50,7 +54,4 @@ private:
 	std::ifstream			  _bubblesFile;
 	std::ofstream			  _consensusFile;
 	std::ofstream			  _logFile;
-	bool					  _verbose;
-	bool 					  _showProgress;
-	bool					  _hopoEnabled;
 };

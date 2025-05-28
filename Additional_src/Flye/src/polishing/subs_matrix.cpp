@@ -215,8 +215,12 @@ std::string HopoMatrix::obsToStr(HopoMatrix::Observation obs)
 	return result;
 }*/
 
-HopoMatrix::HopoMatrix(const std::string& fileName)
+HopoMatrix::HopoMatrix(const std::string& fileName, bool hopoEnabled = true)
 {
+	if (!hopoEnabled)
+	{
+		return;
+	}
 	for (size_t i = 0; i < NUM_HOPO_STATES; ++i)
 	{
 		_observationProbs.emplace_back(NUM_HOPO_OBS, probToScore(MIN_HOPO_PROB));
@@ -256,7 +260,7 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 	{
 		observationsFreq.push_back(std::vector<size_t>(NUM_HOPO_OBS, 0));
 	}
-
+	
 	while (std::getline(fin, buffer))
 	{
 		if (buffer.empty()) continue;

@@ -68,7 +68,7 @@ public:
 	};
 	typedef std::vector<Observation> ObsVector;
 
-	HopoMatrix(const std::string& fileName);
+	HopoMatrix(const std::string& fileName, bool hopoEnabled);
 	AlnScoreType getObsProb(State state, Observation observ) const
 		{return _observationProbs[state.id][observ.id];}
 	AlnScoreType getGenomeProb(State state) const

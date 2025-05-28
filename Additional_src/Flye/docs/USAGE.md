@@ -316,7 +316,7 @@ Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
 
 Alternative contigs (representing alternative haplotypes) will have the same
-alt. group ID. Primary contigs are marked by `*`. Note that the ouptut of
+alt. group ID. Primary contigs are marked by `*`. Note that the outptut of
 alternative contigs could be disabled via the `--no-alt-contigs` option.
 
 ## <a name="graph"></a> Repeat graph

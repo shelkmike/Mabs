@@ -84,3 +84,6 @@ cd ../..
 
 #Making mabs-hifiasm.py, mabs-flye.py and calculate_AG.py executable
 chmod 755 mabs-hifiasm.py mabs-flye.py calculate_AG.py
+
+#Printing "Mabs has been installed" in green font.
+printf "\033[92mMabs has been installed\033[0m\n"

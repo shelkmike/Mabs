@@ -15,6 +15,9 @@ hifiasm -o CHM13.asm -t32 -l0 CHM13-HiFi.fa.gz 2> CHM13.asm.log
 # Assemble heterozygous genomes with built-in duplication purging
 hifiasm -o HG002.asm -t32 HG002-file1.fq.gz HG002-file2.fq.gz
 
+# Assemble genomes with ONT R10 reads rather than PacBio HiFi reads using the latest release of hifiasm (>0.21.0-r686)
+hifiasm -o HG002.asm --ont -t32 HG002-ont.fq.gz
+
 # Hi-C phasing with paired-end short reads in two FASTQ files
 hifiasm -o HG002.asm --h1 read1.fq.gz --h2 read2.fq.gz HG002-HiFi.fq.gz
 
@@ -23,8 +26,18 @@ yak count -b37 -t16 -o pat.yak <(cat pat_1.fq.gz pat_2.fq.gz) <(cat pat_1.fq.gz 
 yak count -b37 -t16 -o mat.yak <(cat mat_1.fq.gz mat_2.fq.gz) <(cat mat_1.fq.gz mat_2.fq.gz)
 hifiasm -o HG002.asm -t32 -1 pat.yak -2 mat.yak HG002-HiFi.fa.gz
 
-# Single-sample telomere-to-telomere assembly with HiFi, ultralong and Hi-C reads
+# Improve contiguity for diploid genome assembly by self-scaffolding (`--dual-scaf`)
+hifiasm -o HG002.asm --dual-scaf --h1 read1.fq.gz --h2 read2.fq.gz HG002-HiFi.fq.gz
+
+# Preserve more telomeres for human genomes (`--telo-m CCCTAA`)
+hifiasm -o HG002.asm --telo-m CCCTAA --h1 read1.fq.gz --h2 read2.fq.gz HG002-HiFi.fq.gz
+
+# Hybrid assembly with HiFi, ultralong and Hi-C reads
 hifiasm -o HG002.asm --h1 read1.fq.gz --h2 read2.fq.gz --ul ul.fq.gz HG002-HiFi.fq.gz
+
+# Single-sample telomere-to-telomere assembly for diploid human genomes
+hifiasm -o HG002.asm --dual-scaf --telo-m CCCTAA --h1 read1.fq.gz --h2 read2.fq.gz --ul ul.fq.gz HG002-HiFi.fq.gz
+
 ```
 See [tutorial][tutorial] for more details. 
 
@@ -35,6 +48,7 @@ See [tutorial][tutorial] for more details.
 - [Why Hifiasm?](#why)
 - [Usage](#use)
   - [Assembling HiFi reads without additional data types](#hifionly)
+  - [Assembling ONT reads](#ontonly)
   - [Hi-C integration](#hic)
   - [Trio binning](#trio)
   - [Ultra-long ONT integration](#ul)
@@ -106,6 +120,16 @@ bloom filter which takes 16GB memory at the beginning. For genomes much larger
 than human, applying `-f38` or even `-f39` is preferred to save memory on k-mer
 counting.
 
+### <a name="ontonly"></a>Assembling ONT reads
+
+Since version 0.21.0 (r686), hifiasm can support ONT assembly using ONT simplex R10 reads. 
+To enable this feature, add the `--ont` option as shown below:
+```sh
+hifiasm -t64 --ont -o ONT.asm ONT.read.fastq.gz
+```
+Please note that this module requires input reads in FASTQ format.
+
+
 ### <a name="hic"></a>Hi-C integration
 
 Hifiasm can generate a pair of haplotype-resolved assemblies with paired-end
@@ -154,9 +178,27 @@ For the single-sample telomere-to-telomere assembly with Hi-C reads:
 ```sh
 hifiasm -o NA12878.asm -t32 --ul ul.fq.gz --h1 read1.fq.gz --h2 read2.fq.gz HiFi-reads.fq.gz
 ```
-For the trio-binning telomere-to-telomere assembly；
+For the trio-binning telomere-to-telomere assembly:
 ```sh
 hifiasm -o NA12878.asm -t32 --ul ul.fq.gz -1 pat.yak -2 mat.yak HiFi-reads.fq.gz
+```
+
+### <a name="ul"></a>Self-scaffolding
+
+For diploid haplotype-resolved genome assembly, hifiasm can further enhance assembly contiguity 
+by introducing scaffolding. It leverages the assemblies of the two haplotypes to scaffold each other. 
+Specifically, if there is a gap within the haplotype 1 assembly, hifiasm will use the corresponding 
+homologous region in haplotype 2 to scaffold haplotype 1. Below is an example using the `--dual-scaf` option.
+```sh
+hifiasm -o NA12878.asm -t32 --dual-scaf HiFi-reads.fq.gz
+```
+
+### <a name="ul"></a>Preserve more telomeres for T2T assemblies
+
+Hifiasm can preserve more telomeres by specifying the telomere motif using the `--telo-m` option. 
+Below is an example applied to human genome assembly.
+```sh
+hifiasm -o NA12878.asm -t32 --telo-m CCCTAA HiFi-reads.fq.gz
 ```
 
 ### <a name="output"></a>Output files
@@ -247,3 +289,8 @@ If you use hifiasm in your work, please cite:
 > Haplotype-resolved assembly of diploid genomes without parental data. 
 > *Nature Biotechnology*, **40**:1332–1335.
 > https://doi.org/10.1038/s41587-022-01261-x
+
+> Cheng, H., Asri, M., Lucas, J., Koren, S., Li, H. (2024)
+> Scalable telomere-to-telomere assembly for diploid and polyploid genomes with double graph. 
+> *Nat Methods*, **21**:967-970.
+> https://doi.org/10.1038/s41592-024-02269-8

@@ -80,7 +80,7 @@ if __name__ == '__main__':
 	s_path_to_nanopore_reads = "" #путь к файлу с ридами Нанопора.
 	s_path_to_pacbio_hifi_reads = "" #путь к файлу с ридами PacBio HiFi.
 	s_path_to_pacbio_clr_reads = "" #путь к файлу с ридами PacBio CLR.
-	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/Latest/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
+	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
 	s_path_to_a_local_busco_dataset = "" #путь к архивированному gzip файлу с датасетом BUSCO на диске или разархивированной папке с датасетом BUSCO на диске.
 	n_number_of_cpu_threads_to_use = 10 #количество ядер, которые будет использовать calculate_AG.
 	s_should_proovframe_be_used = "false" #нужно ли делать шлифовку Proovframe. Значение "true" или "false". 
@@ -89,29 +89,29 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.28" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.29" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
-	#если нет ни одного аргумента командной строки, или есть аргумент командной строки --help, то печатаю хелп
+	#если нет ни одного аргумента командной строки, или есть аргумент командной строки --help, то печатаю хелп . То, что между \033[93m и \033[0m , получается жёлтого цвета (см. https://stackoverflow.com/a/287944).
 	if (len(sys.argv) == 1) or re.search(r"\s\-\-help", s_command_line):
 		print("""calculate_AG, a program to assess how well genes were assembled in a genome assembly.
 
-1) --assembly        Path to contigs or scaffolds to assess.
-2) --nanopore_reads        Path to Nanopore reads.
-3) --pacbio_clr_reads        Path to PacBio CLR reads, also known as "old PacBio" reads.
-4) --pacbio_hifi_reads       Path to PacBio HiFi reads, also known as CCS reads.
-5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Calculate_AG will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
-6) --threads        Number of CPU threads to be used by calculate_AG. The default value is 10.
-7) --use_proovframe         Whether calculate_AG should polish sequences using Proovframe. "true" or "false". The default value is "false".
-8) --output_folder        Output folder for calculate_AG results. The default is "AG_calculation_results".
-9) --number_of_busco_orthogroups        How many BUSCO orthogroups should calculate_AG use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
-10) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
-11) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
+\033[93m1)\033[0m --assembly        Path to contigs or scaffolds to assess.
+\033[93m2)\033[0m --nanopore_reads        Path to Nanopore reads.
+\033[93m3)\033[0m --pacbio_clr_reads        Path to PacBio CLR reads, also known as "old PacBio" reads.
+\033[93m4)\033[0m --pacbio_hifi_reads       Path to PacBio HiFi reads, also known as CCS reads.
+\033[93m5)\033[0m --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2024-01-08.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2024-01-08.tar.gz". Calculate_AG will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+\033[93m6)\033[0m --threads        Number of CPU threads to be used by calculate_AG. The default value is 10.
+\033[93m7)\033[0m --use_proovframe         Whether calculate_AG should polish sequences using Proovframe. "true" or "false". The default value is "false".
+\033[93m8)\033[0m --output_folder        Output folder for calculate_AG results. The default is "AG_calculation_results".
+\033[93m9)\033[0m --number_of_busco_orthogroups        How many BUSCO orthogroups should calculate_AG use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
+\033[93m10)\033[0m --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
+\033[93m11)\033[0m --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2024-01-08.tar.gz". May be a .tar.gz or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
 
 Informational options:
-12) --help        Print this help.
-13) --version        Print the version of calculate_AG.
+\033[93m12)\033[0m --help        Print this help.
+\033[93m13)\033[0m --version        Print the version of calculate_AG.
 
 Example:
 calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40
@@ -209,39 +209,39 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/
 		try:
-			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 			
 			#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 			try:
-				urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+				urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 			except:
-				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 		except:
 			time.sleep(5)
 			try:
-				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 				try:
-					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 				except:
-					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 			except:
 				time.sleep(5)
 				try:
-					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 					try:
-						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 
 					except:
-						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 				
 				except:
-					l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
+					l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
 	
 	#если пользователь использовал --local_busco_dataset
 	o_regular_expression_results = re.search(r" --local_busco_dataset (\S+)", s_command_line_reduced)
@@ -367,7 +367,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 	
 	#если пользователь сказал скачать файл с базой BUSCO или сам дал файл (но не папку), то разархивирую файл и меняю значение переменной s_path_to_a_local_busco_dataset с пути к файлу на путь к папке.
 	if os.path.isfile(s_path_to_a_local_busco_dataset):
-		s_busco_dataset_name = "" #в этой переменной название базы данных. Например, для файла eudicots_odb10.2020-09-10.tar.gz это будет "eudicots_odb10". После разархивирования файла, путь к которому содержится в переменной s_busco_dataset_archive, получается папка, название которой содержится в переменной s_busco_dataset_name.
+		s_busco_dataset_name = "" #в этой переменной название базы данных. Например, для файла eudicots_odb10.2024-01-08.tar.gz это будет "eudicots_odb10". После разархивирования файла, путь к которому содержится в переменной s_busco_dataset_archive, получается папка, название которой содержится в переменной s_busco_dataset_name.
 		s_busco_dataset_name = re.sub(r"^.+\/", r"", s_path_to_a_local_busco_dataset) 
 		s_busco_dataset_name = re.sub(r"\..+", r"", s_busco_dataset_name)
 		os.system("tar -zxf " + s_path_to_a_local_busco_dataset + " --directory " + s_path_to_the_output_folder)
@@ -532,11 +532,11 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 
 			l_line_split = s_line.split("\t")
 			if re.search(r"^\d+$", l_line_split[1]): #если я вижу во 2-м столбце число, значит это строка, описывающая картирование рида на контиг.
-				n_read_title = l_line_split[0]
+				s_read_title = l_line_split[0]
 				
-				if n_read_title != s_title_of_the_previous_read: #если в этой строке описывается картирование не того же рида, картирование которого описывалось в прошлой строке.
+				if s_read_title != s_title_of_the_previous_read: #если в этой строке описывается картирование не того же рида, картирование которого описывалось в прошлой строке.
 					f_outfile.write(s_line)	
-				s_title_of_the_previous_read = n_read_title
+				s_title_of_the_previous_read = s_read_title
 				
 		f_infile.close()
 		f_outfile.close()
@@ -565,7 +565,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		f_outfile.close()
 
 		#сортирую bed-файл с ридами. Сортировка рекомедуется для ускорения поиска перекрытий на https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html .
-		os.system("sort -k 1,1 -k2,2n " + s_path_to_the_output_folder + "/mapping_to_calculate_coverage.bed > " + s_path_to_the_output_folder + "/mapping_to_calculate_coverage.sorted.bed")
+		os.system("LC_ALL=C sort -k 1,1 -k2,2n " + s_path_to_the_output_folder + "/mapping_to_calculate_coverage.bed > " + s_path_to_the_output_folder + "/mapping_to_calculate_coverage.sorted.bed")
 		
 		#Для экономии времени, я при расчёте покрытия буду использовать не весь bed-файл с картированиями ридов, а только его пересечение с bed-файлом экзонов, найденных Metaeuk. Потому что покрытие не в экзонах меня всё равно не интересует.
 		#Делаю bed-файл с координатами экзонов, найденных Metaeuk. Тут не только те экзоны, которые принадлежат генам, прошедшим фильтрацию по длине и bit score BUSCO, а все экзоны всех генов, выданных Metaeuk. Это для простоты. Возможно, для скорости потом стоит сделать, чтобы использовались только те экзоны, которые принадлежат к Complete генам, согласно критериям по длине и bit score.
@@ -613,13 +613,13 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		f_outfile.close()
 		
 		#сортирую bed-файл с координатами экзонов. Сортировка рекомедуется для ускорения поиска перекрытий на https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html .
-		os.system("sort -k 1,1 -k2,2n " + s_path_to_the_output_folder + "/all_exons_found_by_MetaEuk.bed > " + s_path_to_the_output_folder + "/all_exons_found_by_MetaEuk.sorted.bed")
+		os.system("LC_ALL=C sort -k 1,1 -k2,2n " + s_path_to_the_output_folder + "/all_exons_found_by_MetaEuk.bed > " + s_path_to_the_output_folder + "/all_exons_found_by_MetaEuk.sorted.bed")
 		
 		#теперь ищу перекрытия между экзонами и ридами.
 		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Bedtools/bedtools intersect -sorted -a " + s_path_to_the_output_folder + "/mapping_to_calculate_coverage.sorted.bed -b " + s_path_to_the_output_folder + "/all_exons_found_by_MetaEuk.sorted.bed >" + s_path_to_the_output_folder + "/parts_of_reads_that_cover_exons.bed")
 		
 		#сортирую как написано на https://bedtools.readthedocs.io/en/latest/content/tools/genomecov.html
-		os.system("sort -k 1,1 " + s_path_to_the_output_folder + "/parts_of_reads_that_cover_exons.bed >" + s_path_to_the_output_folder + "/parts_of_reads_that_cover_exons.sorted.bed")
+		os.system("LC_ALL=C sort -k 1,1 " + s_path_to_the_output_folder + "/parts_of_reads_that_cover_exons.bed >" + s_path_to_the_output_folder + "/parts_of_reads_that_cover_exons.sorted.bed")
 
 		#генерирую специальный геномный файл, который нужен Bedtools. В нём для каждого контига идёт заголовок, а потом, через табуляцию, длина этого контига.
 		f_outfile = open(s_path_to_the_output_folder + "/regions.sizes", "w")
@@ -854,7 +854,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 			#если ни одного однокопийного гена найдено не было (крайне маловероятно, но, в принципе, такое может быть), но многокопийные гены были, то, для простоты, считаю медианным покрытием однокопийных генов медианное покрытие по всем многокопийным генам, делённое пополам.
 			if len(l_coverages_in_exons_of_single_copy_genes) == 0:
 				n_median_coverage_of_exons_of_single_copy_genes = statistics.median(l_coverages_in_exons_of_genes) / 2
-				f_log.write("\nWarning! No single-copy orthogroups were found. Hence, as the approximate coverage of genes in single-copy orthogroups I take half the median coverage by positions of genes from multicopy, which is " + str(n_median_coverage_of_exons_of_single_copy_genes) + "\n\n")
+				f_log.write("\nWarning! No single-copy orthogroups were found. Therefore, as the approximate coverage of genes in single-copy orthogroups I take half the median coverage by positions of genes from multicopy, which is " + str(n_median_coverage_of_exons_of_single_copy_genes) + "\n\n")
 			#если хотя бы один однокопийный ген был.
 			else:
 				n_median_coverage_of_exons_of_single_copy_genes = statistics.median(l_coverages_in_exons_of_single_copy_genes)
@@ -872,18 +872,18 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 						n_mean_coverage_of_genes_in_this_orthogroup += d_gene_description_to_the_median_coverage_in_its_exons[s_gene_description] / len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 					
 					if n_mean_coverage_of_genes_in_this_orthogroup < 0.75 * n_median_coverage_of_exons_of_single_copy_genes:
-						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is smaller than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", hence this orthogroup is considered a false multicopy.\n")
+						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is smaller than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", therefore this orthogroup is considered a false multicopy.\n")
 					
 						n_number_of_false_multicopy_genes += len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 						
 					#в принципе, это условие и следующее можно объединить в одно (">="). Но для удобства чтения логов я разделю случай ">" и случай "=". Впрочем, думаю, случай "=" будет встречаться крайне редко.
 					elif n_mean_coverage_of_genes_in_this_orthogroup == 0.75 * n_median_coverage_of_exons_of_single_copy_genes:
-						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is equal to 0.75 * (median_coverage_in_exons_of_single_copy_genes), hence this orthogroup is considered a true multicopy.\n")
+						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is equal to 0.75 * (median_coverage_in_exons_of_single_copy_genes), therefore this orthogroup is considered a true multicopy.\n")
 						
 						n_number_of_true_multicopy_genes += len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 					
 					elif n_mean_coverage_of_genes_in_this_orthogroup > 0.75 * n_median_coverage_of_exons_of_single_copy_genes:
-						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is larger than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", hence this orthogroup is considered a true multicopy.\n")
+						f_log.write("The mean coverage of genes from a multicopy orthogroup " + s_orthogroup_title + " which contains " + str(len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])) + " genes is " + str(round(n_mean_coverage_of_genes_in_this_orthogroup, 1)) + ". It is larger than " + str(round(0.75 * n_median_coverage_of_exons_of_single_copy_genes, 1)) + ", therefore this orthogroup is considered a true multicopy.\n")
 						
 						n_number_of_true_multicopy_genes += len(dl_orthogroup_title_to_the_list_of_its_genes[s_orthogroup_title])
 			
@@ -899,6 +899,6 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 	f_log.close()
 	
 	#Строю синаплот с покрытием генов.
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/plot_gene_coverage_distribution.py " + s_path_to_the_output_folder + "/log.txt 2.5 auto " + s_path_to_the_output_folder + "/gene_coverage_distribution")
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/plot_gene_coverage_distribution.py --calculate_AG_folder " + s_path_to_the_output_folder + " --point_size 2.5 --maximum_coverage_to_draw auto --output_folder " + s_path_to_the_output_folder)
 
 

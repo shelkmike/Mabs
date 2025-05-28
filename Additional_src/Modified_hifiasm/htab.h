@@ -108,6 +108,7 @@ uint64_t ha_abufl_mem(const ha_abufl_t *ab);
 
 double yak_cputime(void);
 void yak_reset_realtime(void);
+double yak_realtime_0(void);
 double yak_realtime(void);
 long yak_peakrss(void);
 double yak_peakrss_in_gb(void);
@@ -123,6 +124,7 @@ int ha_analyze_count(int n_cnt, int start_cnt, int m_peak_hom, const int64_t *cn
 int adj_m_peak_hom(int m_peak_hom, int max_i, int max2_i, int max3_i, int *peak_het);
 void print_hist_lines(int n_cnt, int start_cnt, const int64_t *cnt);
 void debug_adapter(const hifiasm_opt_t *asm_opt, All_reads *rs);
+
 
 inline int mz_low_b(int peak_hom, int peak_het)
 {

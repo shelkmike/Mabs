@@ -7,6 +7,9 @@
 #include <sys/time.h>
 #include "CommandLines.h"
 #include "ketopt.h"
+#include "kseq.h"
+
+KSEQ_INIT(gzFile, gzread)
 
 #define DEFAULT_OUTPUT "hifiasm.asm"
 
@@ -18,8 +21,8 @@ static ko_longopt_t long_options[] = {
 	{ "write-paf",     ko_no_argument, 302 },
 	{ "write-ec",      ko_no_argument, 303 },
 	{ "skip-triobin",  ko_no_argument, 304 },
-	{ "max-od-ec",     ko_no_argument, 305 },
-	{ "max-od-final",  ko_no_argument, 306 },
+	{ "max-od-ec",     ko_required_argument, 305 },
+	{ "max-od-final",  ko_required_argument, 306 },
 	{ "ex-list",       ko_required_argument, 307 },
 	{ "ex-iter",       ko_required_argument, 308 },
     { "hom-cov",     ko_required_argument, 309 },
@@ -66,7 +69,19 @@ static ko_longopt_t long_options[] = {
     { "scaf-gap",     ko_required_argument, 351},
     { "sec-in",     ko_required_argument, 352},
     { "somatic-cov",     ko_required_argument, 353},
-    { "only-primary",     ko_no_argument, 354},
+    { "telo-m",     ko_required_argument, 354},
+    { "telo-p",     ko_required_argument, 355},
+    { "telo-d",     ko_required_argument, 356},
+    { "telo-s",     ko_required_argument, 357},
+    { "ctg-n",     ko_required_argument, 358},
+    { "ont",       ko_no_argument, 359},
+    // { "sc-n",       ko_no_argument, 360},
+    { "chem-c",     ko_required_argument, 361},
+    { "chem-f",     ko_required_argument, 362},
+    { "ul-m",     ko_required_argument, 363},
+    { "rl-cut",     ko_required_argument, 364},
+    { "sc-cut",     ko_required_argument, 365},
+    { "only-primary",     ko_no_argument, 366},
     // { "path-round",     ko_required_argument, 348},
 	{ 0, 0, 0 }
 };
@@ -89,6 +104,8 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --only-primary       make only primary contigs\n");
     fprintf(stderr, "    -h           show help information\n");
     fprintf(stderr, "    --version    show version number\n");
+    fprintf(stderr, "  Preset options:\n");
+    fprintf(stderr, "    --ont        assemble Oxford Nanopore reads\n");
 	fprintf(stderr, "  Overlap/Error correction:\n");
     fprintf(stderr, "    -k INT       k-mer length (must be <64) [%d]\n", asm_opt->k_mer_length);
 	fprintf(stderr, "    -w INT       minimizer window size [%d]\n", asm_opt->mz_win);
@@ -124,6 +141,9 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "                 break contigs at positions with <=FLOAT*coverage exact overlaps;\n");
     fprintf(stderr, "                 only work with '--b-cov' or '--h-cov'[%.2f]\n", asm_opt->m_rate);
     fprintf(stderr, "    --primary    output a primary assembly and an alternate assembly\n");
+    fprintf(stderr, "    --ctg-n      INT\n");
+    fprintf(stderr, "                 remove tip contigs composed of <=INT reads [%d]\n", asm_opt->max_contig_tip);
+    
     
 //	fprintf(stderr, "    --pri-range INT1[,INT2]\n");
 //	fprintf(stderr, "                keep contigs with coverage in this range in p_ctg.gfa; -1 to disable [auto,inf]\n");
@@ -172,6 +192,11 @@ void Print_H(hifiasm_opt_t* asm_opt)
 
     fprintf(stderr, "  Ultra-Long-integration:\n");
     fprintf(stderr, "    --ul FILEs   file names of Ultra-Long reads [r1.fq,r2.fq,...]\n");
+    ///pending for integration
+    /**
+    fprintf(stderr, "    --ul-m       INT\n");
+    fprintf(stderr, "                 hybrid assembly mode. 0: fast and memory efficent; 1: may produce better assembly with ONT R10 [%d]\n", asm_opt->ul_mod);
+    **/
     fprintf(stderr, "    --ul-rate    FLOAT\n");
     fprintf(stderr, "                 error rate of Ultra-Long reads [%.3g]\n", asm_opt->ul_error_rate);
     fprintf(stderr, "    --ul-tip     INT\n");
@@ -191,7 +216,30 @@ void Print_H(hifiasm_opt_t* asm_opt)
     fprintf(stderr, "    --scaf-gap   INT\n");
     fprintf(stderr, "                 max gap size for scaffolding [%ld]\n", asm_opt->self_scaf_gap_max);
 
-    fprintf(stderr, "Example: ./modified_hifiasm-o NA12878.asm -t 32 NA12878.fq.gz\n");
+    fprintf(stderr, "  Telomere-identification:\n");
+    fprintf(stderr, "    --telo-m     STR\n");
+    fprintf(stderr, "                 telomere motif at 5'-end; CCCTAA for human [%s]\n", ((asm_opt->telo_motif)?(asm_opt->telo_motif):("NULL")));///5'-end, check CCCTAA
+    fprintf(stderr, "    --telo-p     INT\n");
+    fprintf(stderr, "                 non-telomeric penalty [%ld]\n", asm_opt->telo_pen);
+    fprintf(stderr, "    --telo-d     INT\n");
+    fprintf(stderr, "                 max drop [%ld]\n", asm_opt->telo_drop);
+    fprintf(stderr, "    --telo-s     INT\n");
+    fprintf(stderr, "                 min score for telomere reads [%ld]\n", asm_opt->telo_mic_sc);
+
+    fprintf(stderr, "  ONT simplex assembly (beta):\n");
+    fprintf(stderr, "    --ont        assemble ONT simplex reads in fastq format\n");
+    // fprintf(stderr, "    --sc-n       consider base qual value for assembly\n");
+    fprintf(stderr, "    --chem-c     INT\n");
+    fprintf(stderr, "                 detect chimeric reads with <=INT other reads support [%lu]\n", asm_opt->chemical_cov);
+    fprintf(stderr, "    --chem-f     INT\n");
+    fprintf(stderr, "                 length of flanking regions for chimeric read detection [%lu]\n", asm_opt->chemical_flank);
+    fprintf(stderr, "    --rl-cut     INT\n");
+    fprintf(stderr, "                 filter out ONT simplex reads shorter than <INT> for assembly [%ld]\n", asm_opt->rl_cut);
+    fprintf(stderr, "    --sc-cut     INT\n");
+    fprintf(stderr, "                 filter out ONT simplex reads with a mean base quality score below <INT> [%ld]\n", asm_opt->sc_cut);
+
+
+    fprintf(stderr, "Example: ./modified_hifiasm -o NA12878.asm -t 32 NA12878.fq.gz\n");
     fprintf(stderr, "See `https://hifiasm.readthedocs.io/en/latest/' or `man ./hifiasm.1' for complete documentation.\n");
 }
 
@@ -233,6 +281,7 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->load_index_from_disk = 1;
     asm_opt->write_index_to_disk = 1;
     asm_opt->number_of_round = 3;
+    asm_opt->number_of_pround = 0/**3**/;
     asm_opt->adapterLen = 0;
     asm_opt->clean_round = 4;
     ///asm_opt->small_pop_bubble_size = 100000;
@@ -247,6 +296,7 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->min_overlap_coverage = 0;
     asm_opt->max_short_tip = 3;
     asm_opt->max_short_ul_tip = 6;
+    asm_opt->max_contig_tip = 3;
     asm_opt->min_cnt = 2;
     asm_opt->mid_cnt = 5;
     asm_opt->purge_level_primary = 3;
@@ -312,7 +362,21 @@ void init_opt(hifiasm_opt_t* asm_opt)
     asm_opt->self_scaf_gap_max = 3000000;
     asm_opt->sec_in = NULL;
     asm_opt->somatic_cov = -1;
-}
+
+    asm_opt->telo_motif = NULL;
+    asm_opt->telo_pen = 1;
+    asm_opt->telo_drop = 2000;
+    asm_opt->telo_mic_sc = 500;
+
+    asm_opt->is_ont = 0;
+    asm_opt->is_sc = 0;
+    asm_opt->chemical_cov = 1;
+    asm_opt->chemical_flank = 256;
+    asm_opt->ul_mod = 0;
+
+    asm_opt->rl_cut = 1000;
+    asm_opt->sc_cut = 10;
+}   
 
 void destory_enzyme(enzyme* f)
 {
@@ -385,10 +449,39 @@ static int check_file(char* name, const char* opt)
 
 static int check_hic_reads(enzyme* f, const char* opt)
 {
-    int i;
-    for (i = 0; i < f->n; i++)
-    {
+    int32_t i;
+    for (i = 0; i < f->n; i++) {
         if(check_file(f->a[i], opt) == 0) return 0;
+    }
+    return 1;
+}
+
+static int check_fq_files(enzyme* f, const char* opt, int32_t is_fq)
+{
+    int32_t i, ret; gzFile dfp; kseq_t *ks = NULL;
+    for (i = 0; i < f->n; i++) {
+        if(!(f->a[i])) {
+            fprintf(stderr, "[ERROR] input file does not exist (%s)\n", opt);
+            return 0;
+        }
+
+        dfp = gzopen(f->a[i], "r");
+        if (dfp == 0) {
+            fprintf(stderr, "[ERROR] Cannot find the input file: %s (%s)\n", f->a[i], opt);
+            return 0;
+        } else if(is_fq){
+            ks = kseq_init(dfp);
+            while (((ret = kseq_read(ks)) >= 0)) {
+                if((ks->qual.l == 0) || (ks->qual.s == NULL)) {
+                    fprintf(stderr, "[ERROR] %s is in fasta format rather than fastq format (%s)\n", f->a[i], opt);
+                    fprintf(stderr, "[ERROR] set --ul-m 0 for fasta files\n");
+                    return 0;
+                }
+                break;
+            }
+            kseq_destroy(ks); ks = NULL;
+        }
+        gzclose(dfp);
     }
     return 1;
 }
@@ -592,7 +685,7 @@ int check_option(hifiasm_opt_t* asm_opt)
         return 0;
     }
 
-    if(asm_opt->ar != NULL && check_hic_reads(asm_opt->ar, "UL") == 0) return 0;
+    if(asm_opt->ar != NULL && check_fq_files(asm_opt->ar, "--ul", asm_opt->ul_mod) == 0) return 0;
     if(asm_opt->ar != NULL && asm_opt->ar->n == 0)
     {
         fprintf(stderr, "[ERROR] wrong UL reads (--ul)\n");
@@ -641,30 +734,59 @@ int check_option(hifiasm_opt_t* asm_opt)
         return 0;
     }
 
+    if(asm_opt->ul_mod != 0 && asm_opt->ul_mod != 1) {
+        fprintf(stderr, "[ERROR] must be 0 or 1 (--ul-m)\n");
+        return 0;
+    }
+
+    if(asm_opt->telo_motif) {
+        uint64_t k, tlen = strlen((asm_opt->telo_motif)); char c;
+        if(tlen > 32) {
+            fprintf(stderr, "[ERROR] [--telo-m] must be no longer than 32\n");
+            return 0;
+        }
+        for (k = 0; k < tlen; k++) {
+            c = asm_opt->telo_motif[k];
+            if(c != 'A' && c != 'C' && c != 'G' && c != 'T' &&
+                c != 'a' && c != 'c' && c != 'g' && c != 't') {
+                fprintf(stderr, "[ERROR] [--telo-m] must be A/C/G/T\n");
+                return 0;
+            }
+        }
+    }
+
     return 1;
 }
 
 void get_queries(int argc, char *argv[], ketopt_t* opt, hifiasm_opt_t* asm_opt)
 {
-    if(opt->ind == argc)
-    {
+    if(opt->ind == argc) {
         return;
     }
 
     asm_opt->num_reads = argc - opt->ind;
     asm_opt->read_file_names = (char**)malloc(sizeof(char*)*asm_opt->num_reads);
     
-    long long i;
-    gzFile dfp;
-    for (i = 0; i < asm_opt->num_reads; i++)
-    {
+    long long i; int ret;
+    gzFile dfp; kseq_t *ks = NULL;
+    for (i = 0; i < asm_opt->num_reads; i++) {
         asm_opt->read_file_names[i] = argv[i + opt->ind];
         dfp = gzopen(asm_opt->read_file_names[i], "r");
-        if (dfp == 0)
-        {
+        if (dfp == 0) {
             fprintf(stderr, "[ERROR] Cannot find the input read file: %s\n", 
                     asm_opt->read_file_names[i]);
 		    exit(0);
+        } else if(asm_opt->is_sc){
+            ks = kseq_init(dfp);
+            while (((ret = kseq_read(ks)) >= 0)) {
+                if((ks->qual.l == 0) || (ks->qual.s == NULL)) {
+                    fprintf(stderr, "[ERROR] %s is in fasta format rather than fastq format\n", asm_opt->read_file_names[i]);
+                    asm_opt->is_sc = 0;
+                    exit(0);
+                }
+                break;
+            }
+            kseq_destroy(ks); ks = NULL;
         }
         gzclose(dfp);
     }
@@ -862,10 +984,32 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
         else if (c == 351) asm_opt->self_scaf_gap_max = atol(opt.arg);
         else if (c == 352) get_hic_enzymes(opt.arg, &(asm_opt->sec_in), 0);
         else if (c == 353) asm_opt->somatic_cov = atol(opt.arg);
-        else if (c == 354) asm_opt->make_only_primary_contigs = 1; ///1 means "true", 0 means "false".
-        else if (c == 'l') {   ///0: disable purge_dup; 1: purge containment; 2: purge overlap
+        else if (c == 354) asm_opt->telo_motif = opt.arg;
+        else if (c == 355) asm_opt->telo_pen = atol(opt.arg);
+        else if (c == 356) asm_opt->telo_drop = atol(opt.arg);
+        else if (c == 357) asm_opt->telo_mic_sc = atol(opt.arg);
+        else if (c == 358) asm_opt->max_contig_tip = atol(opt.arg);
+        else if (c == 359) {
+            asm_opt->is_ont = 1; asm_opt->max_ov_diff_ec = 0.07; asm_opt->is_sc = 1; ///asm_opt->mz_win = 37; asm_opt->k_mer_length = 37;
+        } /**else if (c == 360) {
+            asm_opt->is_sc = 1; 
+        }**/ else if (c == 361) {
+            asm_opt->chemical_cov = atol(opt.arg);
+        } else if (c == 362) {
+            asm_opt->chemical_flank = atol(opt.arg);
+        ///pending for integration
+        /**        
+        } else if (c == 363) {
+            asm_opt->ul_mod = atol(opt.arg); 
+        **/
+        } else if (c == 364) {
+            asm_opt->rl_cut = atol(opt.arg);
+        } else if (c == 365) {
+            asm_opt->sc_cut = atol(opt.arg);
+        } else if (c == 'l') {   ///0: disable purge_dup; 1: purge containment; 2: purge overlap
             asm_opt->purge_level_primary = asm_opt->purge_level_trio = atoi(opt.arg);
         }
+        else if (c == 366) asm_opt->make_only_primary_contigs = 1; ///1 means "true", 0 means "false".
         else if (c == 's') asm_opt->purge_simi_rate_l2 = asm_opt->purge_simi_rate_l3 = atof(opt.arg);
         else if (c == 'O') asm_opt->purge_overlap_len = atoll(opt.arg);
         else if (c == ':') 
@@ -900,6 +1044,9 @@ int CommandLine_process(int argc, char *argv[], hifiasm_opt_t* asm_opt)
 
     // fprintf(stderr, "[M::%s::] post join::%u\n", __func__, (uint32_t)(!(asm_opt->flag & HA_F_BAN_POST_JOIN)));
     // exit(1);
+    if(!(asm_opt->is_ont)) {
+        asm_opt->rl_cut = -1; asm_opt->sc_cut = 1;
+    }
 
     return check_option(asm_opt);
 }

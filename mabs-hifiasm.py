@@ -82,12 +82,14 @@ if __name__ == '__main__':
 	s_command_line_reduced = s_command_line #то же, что s_command_line, но после того, как я распаршу какой-нибудь аргумент, я удалю его из этой строки. Если останется какой-то нераспарсенный аргумент, значит пользователь ввёл неизвестные Mabs-hifiasm аргументы, и нужно выдать ошибку.
 
 	#инициализирую исходные значения переменных
-	s_path_to_pacbio_hifi_reads = "" #путь к файлу с ридами PacBio HiFi.
+	s_path_to_long_reads = "" #путь к файлу с длинными (но не ультрадлинными) ридами.
 	s_path_to_ultralong_nanopore_reads = "" #путь к файлу с ультрадлинными ридами Нанопора.
 	s_path_to_hic_short_reads_R1 = "" #путь к файлу с короткими ридами HiC первого конца.
 	s_path_to_hic_short_reads_R2 = "" #путь к файлу с короткими ридами HiC второго конца.
-	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/Latest/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
+	s_busco_dataset_name_online = "" #название файла с базой данных BUSCO с сайта http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ (будет непустым только если пользователь использовал опцию "--download_busco_dataset") 
 	s_path_to_a_local_busco_dataset = "" #путь к архивированному gzip файлу с датасетом BUSCO на диске или разархивированной папке с датасетом BUSCO на диске.
+	n_hifi_accuracy_threshold = 99.8 #если медианная точность ридов, путь к которым содержится в s_path_to_long_reads, выше этого порога, то Hifiasm будет использовать риды без опции "--ont"
+	s_should_hifiasm_use_the_ont_option = "auto" #Нужно ли сделать так, чтобы Hifiasm использовал опцию "--ont". Соответствует опции "--should_ont_be_used" Mabs-hifiasm. Должно быть "true", чтобы принудительно использовать, "false", чтобы принудительно не использовать, или "auto", чтобы принять решение автоматически в соответствие с порогом, заданным опцией --hifi_accuracy_threshold. Если пользователь дал длинные риды в формате FASTA, по умолчанию будет использоваться не значение "auto", а значение "false", потому что, вероятно, если риды в формате FASTA, то они после какой-то программы, которая корректировала ошибки в ридах, например "dorado correct".
 	n_number_of_cpu_threads_to_use = 10 #количество ядер, которые будет использовать Mabs-hifiasm.
 	s_path_to_the_output_folder = "./Mabs_results" #путь к выходной папке Mabs-hifiasm.
 	s_genome_size_estimate = "auto" #оценка размера генома.
@@ -98,49 +100,57 @@ if __name__ == '__main__':
 	
 	s_additional_hifiasm_parameters = "" #дополнительные параметры Hifiasm.
 	
-	s_Mabs_version = "2.28"
+	s_Mabs_version = "2.29"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
-	#если нет ни одного аргумента командной строки, или есть аргумент командной строки --help, то печатаю хелп
+	#если нет ни одного аргумента командной строки, или есть аргумент командной строки --help, то печатаю хелп . То, что между \033[93m и \033[0m , получается жёлтого цвета (см. https://stackoverflow.com/a/287944).
 	if (len(sys.argv) == 1) or re.search(r"\s\-\-help", s_command_line):
 		print("""Mabs-hifiasm, a program for genome assembly.
 
 Main options:
-1) --pacbio_hifi_reads       Path to PacBio HiFi reads, also known as CCS reads.
-2) --ultralong_nanopore_reads        Path to ultralong Nanopore reads.
-3) --short_hi-c_reads_R1     Path to short Hi-C reads, first reads from a pair.
-4) --short_hi-c_reads_R2     Path to short Hi-C reads, second reads from a pair.
+\033[93m1)\033[0m --long_reads    Path to PacBio or Nanopore reads.
+\033[93m2)\033[0m --ultralong_nanopore_reads        Path to ultralong Nanopore reads. Ultralong reads are reads with N50 > 50 kbp.
+\033[93m3)\033[0m --short_hi-c_reads_R1     Path to short Hi-C reads, first reads from a pair.
+\033[93m4)\033[0m --short_hi-c_reads_R2     Path to short Hi-C reads, second reads from a pair.
 
 [any of the above files may be in FASTQ or FASTA, gzipped or not]
 
-5) --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2021-02-19.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2020-08-05.tar.gz". Mabs-hifiasm will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
-6) --threads        Number of CPU threads to be used by Mabs-hifiasm. The default value is 10.
-7) --output_folder        Output folder for Mabs-hifiasm results. The default is "Mabs_results".
-8) --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
-9) --ploidy		Ploidy of the genome. The default value is 2.
-10) --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number, possibly ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
-11) --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
-12) --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/Latest/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2021-02-19.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
-13) --additional_hifiasm_parameters        A string with additional parameters to be passed to Hifiasm, enclosed in square brackets. Example: "--additional_hifiasm_parameters [--hom-cov 50 -1 pat.yak -2 mat.yak]".
+\033[93m5)\033[0m --download_busco_dataset        Name of a file from http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ . It should be the most taxonomically narrow dataset for your species. For example, for a human genome assembly use "--download_busco_dataset primates_odb10.2024-01-08.tar.gz" and for a drosophila genome assembly use "--download_busco_dataset diptera_odb10.2024-01-08.tar.gz". Mabs-hifiasm will download the respective file. This option is mutually exclusive with "--local_busco_dataset".
+\033[93m6)\033[0m --threads        Number of CPU threads to be used by Mabs-hifiasm. The default value is 10.
+\033[93m7)\033[0m --output_folder        Output folder for Mabs-hifiasm results. The default is "Mabs_results".
+\033[93m8)\033[0m --number_of_busco_orthogroups        How many BUSCO orthogroups should Mabs-hifiasm use. Should be either a positive integral value or "all" to use all orthogroups. The default value is 1000. 
+\033[93m9)\033[0m --ploidy		Ploidy of the genome. The default value is 2.
+\033[93m10)\033[0m --genome_size		Haploid genome size. Should be either "auto" for automatic estimation, or a number, possibly ending with "k", "m" or "g". For example, 1.5g means 1.5 gigabases. The default value is "auto".
+\033[93m11)\033[0m --max_intron_length        Maximum allowed length of an intron. Should be either "from_BUSCO" to use a value from a BUSCO dataset, or a number, possibly ending with "k", "m" or "g". For example, 20k means 20 kilobases. The default is "from_BUSCO". Change --max_intron_length if you assemble a genome with unusually long introns.
+\033[93m12)\033[0m --local_busco_dataset        Path to a local BUSCO dataset, manually pre-downloaded from http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ or http://busco-data.ezlab.org/v5/data/lineages/. Example: "--local_busco_dataset /home/test/Data/primates_odb10.2024-01-08.tar.gz". May be a .tar.gz file or a decompressed folder. This option is mutually exclusive with "--download_busco_dataset".
+\033[93m13)\033[0m --hifi_accuracy_threshold    If the median accuracy of reads is above this threshold, Hifiasm will use them without the "--ont" option. The default value is "99.8", which means 99.8%.
+\033[93m14)\033[0m --should_ont_be_used    Defines whether Hifiasm should be run with the option "--ont", which indicates that reads have lower accuracy. The value must be either "true", "false", or "auto". In the latter case, Mabs-hifiasm will decide based on the value of --hifi_accuracy_threshold. The default value is "auto".
+\033[93m15)\033[0m --additional_hifiasm_parameters        A string with additional parameters to be passed to Hifiasm, enclosed in square brackets. Example: "--additional_hifiasm_parameters [--hom-cov 50 -1 pat.yak -2 mat.yak]".
+
+Legacy options:
+\033[93m16)\033[0m --pacbio_hifi_reads       This option works exactly the same as "--long_reads". Kept for consistency with older versions of Mabs.
 
 Informational options:
-14) --help        Print this help.
-15) --version        Print the version of Mabs-hifiasm.
-16) --run_test        Assemble a small dataset to test whether Mabs-hifiasm was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-hifiasm was installed successfully.
+\033[93m17)\033[0m --help        Print this help.
+\033[93m18)\033[0m --version        Print the version of Mabs-hifiasm.
+\033[93m19)\033[0m --run_test        Assemble a small dataset to test whether Mabs-hifiasm was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-hifiasm was installed successfully.
 
 Example 1:
-mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --download_busco_dataset eudicots_odb10.2020-09-10.tar.gz --threads 40
+mabs-hifiasm.py --long_reads hifi_reads.fastq --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40
 
 Example 2:
-mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads nanopore_reads.fastq --download_busco_dataset diptera_odb10.2020-08-05.tar.gz --threads 40
+mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads nanopore_reads.fastq --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40
 		""")
 		sys.exit()
 
 	#если пользователь дал Mabs-hifiasm только параметр --run_test, то делаю сборку по тестовому набору ридов.
 	if (len(sys.argv) == 2) and re.search(r"\s\-\-run_test", s_command_line):
-		s_path_to_pacbio_hifi_reads = s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_hifi_test_reads.fastq.gz"
-		s_busco_dataset_name_online = "saccharomycetes_odb10.2020-08-05.tar.gz"
+		s_path_to_long_reads = s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_hifi_test_reads.fastq.gz"
+		s_busco_dataset_name_online = "saccharomycetes_odb10.2024-01-08.tar.gz"
+		
+		#Принудительно указываю, что использовать "--ont" не нужно. Почему-то Badread, хотя я сказал ему генерировать риды Pacbio с высокой точностью, в строке качества выдал довольно низкие точности (медианная точность ридов около 90%).
+		s_should_hifiasm_use_the_ont_option = "false"
 		
 		#проверяю, были ли недоступны какие-то программы, которые нужны Mabs.
 		if len(l_unavailable_files_and_folders) != 0:
@@ -173,37 +183,37 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 		
 		s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+		#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/
 		try:
-			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+			s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 			#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 			try:
-				urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+				urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 			except:
-				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+				l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 		except:
 			time.sleep(5)
 			try:
-				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 				try:
-					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 				except:
-					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 			except:
 				time.sleep(5)
 				try:
-					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 					try:
-						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 					except:
-						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 				except:
-					l_errors_in_command_line.append("Unfortunately, http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is currently not accessible. To test Mabs-hifiasm, download the file http://busco-data.ezlab.org/v5/data/lineages/saccharomycetes_odb10.2020-08-05.tar.gz and run the following command:\nmabs-hifiasm.py --pacbio_hifi_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/pacbio_hifi_test_reads.fastq.gz --local_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz")
+					l_errors_in_command_line.append("Unfortunately, http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ is currently not accessible. To test Mabs-hifiasm, download the file http://busco-data.ezlab.org/v5/data/lineages/saccharomycetes_odb10.2024-01-08.tar.gz and run the following command:\nmabs-hifiasm.py --long_reads [PATH TO THE FOLDER WITH MABS]/Test_datasets/pacbio_hifi_test_reads.fastq.gz --local_busco_dataset saccharomycetes_odb10.2024-01-08.tar.gz")
 		
 		
 		if len(l_errors_in_command_line) != 0:
@@ -243,32 +253,48 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
 			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
 		
-		#проверяю, что пользователь не дал опцией --additional_hifiasm_parameters следующие опции: -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2 . Это потому, что Mabs-hifiasm их и так использует.
+		#проверяю, что пользователь не дал опцией --additional_hifiasm_parameters следующие опции: -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont . Это потому, что Mabs-hifiasm их и так использует.
 		if re.search(r"\-s ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-s\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-s\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-o ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-o\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-o\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-t ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-t\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"-t\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-\-n\-hap ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--n-hap\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--n-hap\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-\-hg-size ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--hg-size\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--hg-size\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-\-only-primary ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--only-primary\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--only-primary\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-\-ul ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--ul\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--ul\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-\-h1 ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--h1\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--h1\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")
 		if re.search(r"\-\-h2 ", s_additional_hifiasm_parameters):
-			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--h2\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2.")		
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--h2\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")		
+		if re.search(r"\-\-ont ", s_additional_hifiasm_parameters):
+			l_errors_in_command_line.append("You have given Mabs-hifiasm the option \"--ont\" via the option \"--additional_hifiasm_parameters\". The following options cannot be passed via \"--additional_hifiasm_parameters\": -s, -o, -t, --n-hap, --hg-size, --only-primary, --ul, --h1, --h2, --ont.")		
 		
-		#смотрю, дал ли пользователь риды PacBio HiFi
+		#смотрю, что пользователь не дал одновременно длинные риды через опцию --long_reads и длинные риды через устаревшую опцию --pacbio_hifi_reads.
+		if re.search(r" --long_reads (\S+)", s_command_line_reduced) and re.search(r" --pacbio_hifi_reads (\S+)", s_command_line_reduced):
+			l_errors_in_command_line.append("You have used the option --long_reads and the option --pacbio_hifi_reads together. These options are essentially the same, so, please, use only one of them.")
+		
+		#смотрю, дал ли пользователь длинные риды
+		o_regular_expression_results = re.search(r" --long_reads (\S+)", s_command_line_reduced)
+		if o_regular_expression_results:
+			s_path_to_long_reads = o_regular_expression_results.group(1)
+			if not os.path.isfile(s_path_to_long_reads):
+				l_errors_in_command_line.append("The file with long reads " + s_path_to_long_reads + " does not exist.")
+			
+			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
+			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
+		
+		#смотрю, дал ли пользователь длинные риды устаревшей опцией --pacbio_hifi_reads
 		o_regular_expression_results = re.search(r" --pacbio_hifi_reads (\S+)", s_command_line_reduced)
 		if o_regular_expression_results:
-			s_path_to_pacbio_hifi_reads = o_regular_expression_results.group(1)
-			if not os.path.isfile(s_path_to_pacbio_hifi_reads):
-				l_errors_in_command_line.append("The file with PacBio HiFi reads " + s_path_to_pacbio_hifi_reads + " does not exist.")
+			s_path_to_long_reads = o_regular_expression_results.group(1)
+			if not os.path.isfile(s_path_to_long_reads):
+				l_errors_in_command_line.append("The file with long reads " + s_path_to_long_reads + " does not exist.")
 			
 			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
 			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
@@ -352,37 +378,37 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			
 			s_path_to_a_local_busco_dataset = s_path_to_the_output_folder + "/" + s_busco_dataset_name_online #путь к месту, где будет лежать скачанный архивированный gzip файл с датасетом BUSCO.
 		
-			#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/Latest/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/Latest/
+			#проверяю, доступен ли адрес http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/. Он может быть недоступен из-за каких-то проблем с сервером. Если не доступен, то пробую ещё два раза с интервалом в 5 секунд. Если адрес так и не станет доступным, то рекомендую пользователю скачать базу с http://busco-data.ezlab.org/v5/data/lineages/ и использовать опцию --local_busco_dataset. Проверку делаю примерно как написано на https://stackoverflow.com/questions/1949318/checking-if-a-website-is-up-via-python . А если доступен, то делаю ещё одну проверку — на то, есть ли нужный файл в папке http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/
 			try:
-				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+				s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 				#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 				try:
-					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+					urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 				except:
-					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+					l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 			except:
 				time.sleep(5)
 				try:
-					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+					s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 					#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 					try:
-						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+						urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 					except:
-						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+						l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 				except:
 					time.sleep(5)
 					try:
-						s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/Latest/").getcode()
+						s_dummy_variable = urllib.request.urlopen("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/").getcode()
 						#проверяю, доступен ли нужный файл, и если доступен, то качаю его.
 						try:
-							urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/Latest/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
+							urllib.request.urlretrieve("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/" + s_busco_dataset_name_online, s_path_to_a_local_busco_dataset)
 						except:
-							l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/Latest/ .")
+							l_errors_in_command_line.append("The file " + s_busco_dataset_name_online + " does not exist at http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ .")
 
 					except:
-						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/Latest/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
+						l_errors_in_command_line.append("http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/ is not accessible. Please, download a BUSCO dataset from http://busco-data.ezlab.org/v5/data/lineages/ and use \"--local_busco_dataset\" instead of \"--download_busco_dataset\".")
 		
 		#если пользователь использовал --local_busco_dataset
 		o_regular_expression_results = re.search(r" --local_busco_dataset (\S+)", s_command_line_reduced)
@@ -398,6 +424,33 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			#проверяю, что если это файл, то его имя заканчивается на .tar.gz
 			elif os.path.isfile(s_path_to_a_local_busco_dataset) and (not re.search(r"\.tar\.gz$", s_path_to_a_local_busco_dataset)):
 				l_errors_in_command_line.append("The file " + s_path_to_a_local_busco_dataset + " is not a .tar.gz file.")	
+		
+		#если пользователь указал "--should_ont_be_used true", но при этом использовал и "--hifi_accuracy_threshold", то нужно написать, что такое сочетание опций несовместимо.
+		if re.search(r" --hifi_accuracy_threshold ([\d\.eE\-\+]+)", s_command_line_reduced) and re.search(r" --should_ont_be_used (true|True|TRUE)", s_command_line_reduced):
+			l_errors_in_command_line.append("\"--should_ont_be_used true\" shouldn't be used together with \"--hifi_accuracy_threshold\", because \"--hifi_accuracy_threshold\" implies \"--should_ont_be_used auto\".")	
+			
+		#если пользователь указал "--should_ont_be_used false", но при этом использовал и "--hifi_accuracy_threshold", то нужно написать, что такое сочетание опций несовместимо.
+		if re.search(r" --hifi_accuracy_threshold ([\d\.eE\-\+]+)", s_command_line_reduced) and re.search(r" --should_ont_be_used (false|False|FALSE)", s_command_line_reduced):
+			l_errors_in_command_line.append("\"--should_ont_be_used false\" shouldn't be used together with \"--hifi_accuracy_threshold\", because \"--hifi_accuracy_threshold\" implies \"--should_ont_be_used auto\".")	
+		
+		#смотрю, использовал ли пользователь --hifi_accuracy_threshold
+		o_regular_expression_results = re.search(r" --hifi_accuracy_threshold ([\d\.eE\-\+]+)", s_command_line_reduced)
+		if o_regular_expression_results:
+			n_hifi_accuracy_threshold = float(o_regular_expression_results.group(1))
+							
+			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
+			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)	
+		
+		#смотрю, использовал ли пользователь --should_ont_be_used.
+		o_regular_expression_results = re.search(r" --should_ont_be_used (true|false|True|False|TRUE|FALSE|auto)", s_command_line_reduced)
+		if o_regular_expression_results:
+			s_should_hifiasm_use_the_ont_option = o_regular_expression_results.group(1)
+			#перевожу в нижний реестр.
+			s_should_hifiasm_use_the_ont_option = s_should_hifiasm_use_the_ont_option.lower()
+							
+			s_string_to_remove = re.escape(o_regular_expression_results.group(0))
+			s_command_line_reduced = re.sub(s_string_to_remove, "", s_command_line_reduced, 1)
+		
 		
 		#смотрю, указал ли пользователь в командной строке используемое количество потоков.
 		o_regular_expression_results = re.search(r" --threads (\d+)", s_command_line_reduced)
@@ -450,15 +503,24 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 				elif re.search(r"[gG]$", s_maximum_allowed_intron_length):
 					s_maximum_allowed_intron_length = str(int(n_the_number * 1000000000))		
 		
-		#проверяю, что пользователь дал риды HiFi.
-		if (s_path_to_pacbio_hifi_reads == ""):
-			l_errors_in_command_line.append("Mabs-hifiasm requires very accurate reads, provided via --pacbio_hifi_reads. If you don't have them, use Mabs-flye instead.")
+		#проверяю, что пользователь дал длинные риды.
+		if (s_path_to_long_reads == "") and (s_path_to_ultralong_nanopore_reads == ""):
+			l_errors_in_command_line.append("You haven't provided long or ultralong reads.")
 		
 		#проверяю, не ввёл ли пользователь какие-то несуществующие опции. Это я определяю по тому, что после того, как я распарсил все команды, в строке s_command_line_reduced осталось что-то, кроме названия исполняемого файла Mabs-hifiasm.
 		s_command_line_reduced = re.sub(r"^.*?mabs\-hifiasm(\.py)?\s*", "", s_command_line_reduced)
 		if s_command_line_reduced != "":
 			l_errors_in_command_line.append("You have provided some options which Mabs-hifiasm doesn't know: " + s_command_line_reduced)
+		
+		#Если пользователь указал ультрадлинные риды, но не указал обычные, то использую ультрадлинные как обычные.
+		if (s_path_to_ultralong_nanopore_reads != "") and (s_path_to_long_reads == ""):
+			s_path_to_long_reads = s_path_to_ultralong_nanopore_reads
+			s_path_to_ultralong_nanopore_reads = ""
 			
+		#если пользователь указал "--should_ont_be_used true", но при этом риды в формате FASTA, то пишу, что это несовместимые опции. Это потому, что Hifiasm, когда его запускают с "--ont", может брать на вход риды только в формате FASTQ.
+		if (s_should_hifiasm_use_the_ont_option == "true") and (re.search(r"(\.fasta|\.fa|\.fasta\.gz|\.fa\.gz)$", s_path_to_long_reads)):
+			l_errors_in_command_line.append("\"--should_ont_be_used true\" cannot be used when reads are in FASTA. Please, either don't use \"--should_ont_be_used true\" or provide reads in FASTQ.")	
+				
 		#проверяю, были ли недоступны какие-то программы, которые нужны Mabs, и были ли ошибки в командной строке. Если были какие-то из этих проблем, то пишу об этом и завершаю работу Mabs-hifiasm.
 		if len(l_unavailable_files_and_folders) != 0:
 			#Если ошибка была всего одна.
@@ -510,9 +572,50 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	f_log.write("Started Mabs-hifiasm\n\n")
 
 	f_log.write("You have run Mabs-hifiasm of version " + s_Mabs_version + " with the following command: " + s_command_line + "\n\n")
+
 	
 	#Это строка, в которой указаны пути ко всем ридам, которые нужно давать Modified_hifiasm, а также, если пользователь указал размер генома, то и размер генома. Например, "--hg-size 1g --h1 hic_reads_R1.fastq --hi2 hic_reads_R1.fastq --ul nanopore_reads.fastq hifi_reads.fastq", если был указан размер генома, и были указаны и риды Hi-C, и ультрадлинные риды Нанопора, и риды HiFi. Или, например, просто "hifi_reads.fastq" если размер генома не был указан, и были только риды HiFi. Эта строка нужна, чтобы Mabs-hifiasm было проще передавать аргументы командной строки Modified_hifiasm. Иначе, передача аргументов несколько осложнена, потому что в зависимости от того, какие опции дал Mabs-hifiasm пользователь, программа Modified_hifiasm нужно передавать разное количество аргументов.
-	s_command_line_arguments_with_reads_for_Modified_hifiasm = s_path_to_pacbio_hifi_reads
+	s_command_line_arguments_with_reads_for_Modified_hifiasm = s_path_to_long_reads
+	
+	#Если s_should_hifiasm_use_the_ont_option == "auto", то нужно определить медианную точность ридов, чтобы решать, давать Hifiasm риды с опцией "--ont" или без неё. Для скорости, медианную точность ридов считаю по 1000 случайных ридов.
+	#Также, в зависимости от того, используется "--ont" или нет, я также и риды calculate_AG.py буду давать опцией --nanopore_reads или --pacbio_hifi_reads. Соответственно, "--nanopore_reads" или "--pacbio_hifi_reads" записывается в переменную s_long_reads_option_for_calculate_AG.
+	if s_should_hifiasm_use_the_ont_option == "true":
+		s_command_line_arguments_with_reads_for_Modified_hifiasm = "--ont " + s_command_line_arguments_with_reads_for_Modified_hifiasm
+		s_long_reads_option_for_calculate_AG = "--nanopore_reads"
+	elif s_should_hifiasm_use_the_ont_option == "false":
+		s_long_reads_option_for_calculate_AG = "--pacbio_hifi_reads"
+	#Если s_should_hifiasm_use_the_ont_option == "auto", но, при этом, риды в формате FASTA (заархивированном или нет), то "--ont" не будет использоваться, потому что, вероятно, если риды в формате FASTA, то они после какой-то программы, которая корректировала ошибки в ридах, например "dorado correct".
+	elif re.search(r"(\.fasta|\.fa|\.fasta\.gz|\.fa\.gz)$", s_path_to_long_reads) and (s_should_hifiasm_use_the_ont_option == "auto"):
+		s_long_reads_option_for_calculate_AG = "--pacbio_hifi_reads"
+	else:
+		#Беру 1000 случайных ридов.
+		os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/SeqTk/seqtk sample -s seed=1 " + s_path_to_long_reads + " 1000 > " + s_path_to_the_output_folder + "/1000_random_reads.fastq")
+		
+		#Вычисляю медианную точность ридов.
+		s_median_accuracy_of_reads = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_median_read_accuracy.py " + s_path_to_the_output_folder + "/1000_random_reads.fastq")
+		#Чтобы получить медианную точность в виде числа, отрезаю "%" на конце.
+		s_median_accuracy_of_reads__without_the_percent_sign = re.sub(r"\%$", "", s_median_accuracy_of_reads)
+		n_median_accuracy_of_reads = float(s_median_accuracy_of_reads__without_the_percent_sign)
+		
+		#Округляю медианную точность, чтобы показать её пользователю. Если точность <=90%, то округляю до целого. Если точность от 90% до 99%, то округляю до первого знака после запятой. Если точность >99%, то округляю до второго знака после запятой.
+		if n_median_accuracy_of_reads <= 90:
+			n_median_accuracy_of_reads__rounded = int(round(n_median_accuracy_of_reads, 0))
+		elif (n_median_accuracy_of_reads > 90) and (n_median_accuracy_of_reads <= 99):
+			n_median_accuracy_of_reads__rounded = round(n_median_accuracy_of_reads, 1)
+		else:
+			n_median_accuracy_of_reads__rounded = round(n_median_accuracy_of_reads, 2)
+		
+		if n_median_accuracy_of_reads__rounded <= n_hifi_accuracy_threshold:
+			f_log.write("The median accuracy of reads has been estimated as approximately " + str(n_median_accuracy_of_reads__rounded) + "%. Hifiasm will use the option \"--ont\" to account for the relatively low accuracy.\n\n")
+			s_command_line_arguments_with_reads_for_Modified_hifiasm = "--ont " + s_command_line_arguments_with_reads_for_Modified_hifiasm
+			
+			s_long_reads_option_for_calculate_AG = "--nanopore_reads"
+			
+		elif n_median_accuracy_of_reads__rounded > n_hifi_accuracy_threshold:
+			f_log.write("The median accuracy of reads has been estimated as approximately " + str(n_median_accuracy_of_reads__rounded) + "%. These reads are highly accurate and Hifiasm will use them without the option \"--ont\".\n\n")
+			
+			s_long_reads_option_for_calculate_AG = "--pacbio_hifi_reads"
+		
 	
 	#Если пользователь дал и ультрадлинные риды Нанопора
 	if s_path_to_ultralong_nanopore_reads != "":
@@ -530,12 +633,12 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	#если пользователь делает сборку тестового набора ридов Mabs-hifiasm, то нужно написать подробности этого тестового набора.
 	if (len(sys.argv) == 2) and re.search(r"\s\-\-run_test", s_command_line):
 		f_log.write("As a test, Mabs-hifiasm will assemble the first chromosome of Saccharomyces cerevisiae, which is approximately 200 kbp long, using 40x PacBio HiFi reads.\n\n")
-		f_log.write("The command \"mabs-hifiasm.py --run_test\" is equivalent to the command \"mabs-hifiasm.py --pacbio_hifi_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_hifi_reads__test_set__for_diploid_assembly.fastq.gz --download_busco_dataset saccharomycetes_odb10.2020-08-05.tar.gz\"\n")
+		f_log.write("The command \"mabs-hifiasm.py --run_test\" is equivalent to the command \"mabs-hifiasm.py --long_reads " + s_path_to_the_folder_where_Mabs_lies + "/Test_datasets/pacbio_hifi_reads__test_set__for_diploid_assembly.fastq.gz --download_busco_dataset saccharomycetes_odb10.2024-01-08.tar.gz\"\n")
 		f_log.write("If after Mabs-hifiasm finishes you see a file ./Mabs_results/The_best_assembly/assembly.fasta which has a size of approximately 200 kilobytes, then the test succeeded.\n\n")
 	
 	#если пользователь сказал скачать файл с базой BUSCO или сам дал файл (но не папку), то разархивирую файл и меняю значение переменной s_path_to_a_local_busco_dataset с пути к файлу на путь к папке.
 	if os.path.isfile(s_path_to_a_local_busco_dataset):
-		s_busco_dataset_name = "" #в этой переменной название базы данных. Например, для файла eudicots_odb10.2020-09-10.tar.gz это будет "eudicots_odb10". После разархивирования файла, путь к которому содержится в переменной s_busco_dataset_archive, получается папка, название которой содержится в переменной s_busco_dataset_name.
+		s_busco_dataset_name = "" #в этой переменной название базы данных. Например, для файла eudicots_odb10.2024-01-08.tar.gz это будет "eudicots_odb10". После разархивирования файла, путь к которому содержится в переменной s_busco_dataset_archive, получается папка, название которой содержится в переменной s_busco_dataset_name.
 		s_busco_dataset_name = re.sub(r"^.+\/", r"", s_path_to_a_local_busco_dataset) 
 		s_busco_dataset_name = re.sub(r"\..+", r"", s_busco_dataset_name)
 		os.system("tar -zxf " + s_path_to_a_local_busco_dataset + " --directory " + s_path_to_the_output_folder)
@@ -557,23 +660,23 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	#0.001 будет давать ложные выравнивания только для каждого тысячного рида, что приемлемо (не очень увеличит время картирования minimap2), зато увеличивает чувствительность.
 
 
-	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/DIAMOND/diamond blastx --query " + s_path_to_pacbio_hifi_reads + " --threads " + str(n_number_of_cpu_threads_to_use) + " --frameshift 15 --sensitive --db " + s_path_to_the_output_folder + "/reference_busco_proteins.fasta --out " + s_path_to_the_output_folder + "/diamond_results_for_alignment_of_pacbio_hifi_reads_to_busco_proteins.txt --outfmt 6 qseqid qlen sseqid evalue bitscore --max-target-seqs 1 --max-hsps 1 --min-orf 1 --evalue 0.001 1>" + s_path_to_the_output_folder + "/diamond__pacbio_hifi_reads_to_busco_proteins__stdout.txt 2>" + s_path_to_the_output_folder + "/diamond__pacbio_hifi_reads_to_busco_proteins__stderr.txt")
+	os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/DIAMOND/diamond blastx --query " + s_path_to_long_reads + " --threads " + str(n_number_of_cpu_threads_to_use) + " --frameshift 15 --sensitive --db " + s_path_to_the_output_folder + "/reference_busco_proteins.fasta --out " + s_path_to_the_output_folder + "/diamond_results_for_alignment_of_long_reads_to_busco_proteins.txt --outfmt 6 qseqid qlen sseqid evalue bitscore --max-target-seqs 1 --max-hsps 1 --min-orf 1 --evalue 0.001 1>" + s_path_to_the_output_folder + "/diamond__long_reads_to_busco_proteins__stdout.txt 2>" + s_path_to_the_output_folder + "/diamond__long_reads_to_busco_proteins__stderr.txt")
 	
 	#Теперь смотрю, какие длинные риды прибластились к белкам BUSCO, и выписываю последовательности этих ридов.
 	#Сначала нужно определить, риды в формате FASTQ или в формате FASTA. От этого зависит расширение выходного файла.
-	if re.search(r"(\.fastq|\.fq|\.fastq\.gz|\.fq\.gz)$", s_path_to_pacbio_hifi_reads, flags = re.IGNORECASE):
+	if re.search(r"(\.fastq|\.fq|\.fastq\.gz|\.fq\.gz)$", s_path_to_long_reads, flags = re.IGNORECASE):
 		s_output_extension = "fastq"
 	else:
 		s_output_extension = "fasta"
 	
 	#Проверяю, что DIAMOND выдал файл. Файла может не быть, если у DIAMOND были какие-то проблемы при запуске (см. https://github.com/shelkmike/Mabs/issues/3)
-	if not os.path.exists(s_path_to_the_output_folder + "/diamond_results_for_alignment_of_pacbio_hifi_reads_to_busco_proteins.txt"):
+	if not os.path.exists(s_path_to_the_output_folder + "/diamond_results_for_alignment_of_long_reads_to_busco_proteins.txt"):
 		print("Mabs-hifiasm has stopped because there was an error during DIAMOND execution.")
 		sys.exit()
 	
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/get_single_end_reads_from_DIAMOND_results.py " + s_path_to_pacbio_hifi_reads + " " + s_path_to_the_output_folder + "/diamond_results_for_alignment_of_pacbio_hifi_reads_to_busco_proteins.txt " + s_path_to_the_output_folder + "/pacbio_hifi_reads_that_have_matches_to_busco_proteins." + s_output_extension)
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/get_single_end_reads_from_DIAMOND_results.py " + s_path_to_long_reads + " " + s_path_to_the_output_folder + "/diamond_results_for_alignment_of_long_reads_to_busco_proteins.txt " + s_path_to_the_output_folder + "/long_reads_that_have_matches_to_busco_proteins." + s_output_extension)
 	
-	s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes = s_path_to_the_output_folder + "/pacbio_hifi_reads_that_have_matches_to_busco_proteins." + s_output_extension
+	s_path_to_long_reads_that_correspond_to_busco_genes = s_path_to_the_output_folder + "/long_reads_that_have_matches_to_busco_proteins." + s_output_extension
 
 	#Теперь, собственно, начинаю проверку 10 точек методом золотого сечения. Параметр, который я оптимизирую, это параметр "-s" Hifiasm. Стартовый интервал -s: [0;1]. n_golden_section_point_1 это самая левая в данный момент точка (то есть, с наименьшим -s), n_golden_section_point_4 это самая правая (то есть, с наибольшим -s), а n_golden_section_point_2 и n_golden_section_point_3 это две промежуточные, положение которых, собственно, и определяется золотым сечением.
 	#ВАЖНО: возможно, в будущем нужно изменить терминологию. Потому что сейчас можно перепутать обозначения четырёх точек метода золотого сечения и те "точки", которые в n_number_of_the_point_under_analysis
@@ -626,7 +729,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы из неё перемещать файлы с расширениями .bin и .utg в новую папку со сборкой. Их присутствие ускоряет сборку.
 	
 	#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta " + s_long_reads_option_for_calculate_AG + " " + s_path_to_long_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 
 	#Беру AG, посчитанный скриптом calculate_AG.py
 	if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
@@ -693,7 +796,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 	s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 	
 	#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+	os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta " + s_long_reads_option_for_calculate_AG + " " + s_path_to_long_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 
 	#Беру AG, посчитанный скриптом calculate_AG.py
 	if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
@@ -780,7 +883,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 			
 			#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta " + s_long_reads_option_for_calculate_AG + " " + s_path_to_long_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 
 			#Беру AG, посчитанный скриптом calculate_AG.py
 			if os.path.isfile(s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + "/AG.txt"):
@@ -860,7 +963,7 @@ mabs-hifiasm.py --pacbio_hifi_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_
 			f_outfile.close()
 			
 			#"--number_of_busco_orthogroups all" использую потому, что в папке BUSCO_dataset_to_use уже оставлены только те ортогруппы, которые нужно использовать.
-			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta --pacbio_hifi_reads " + s_path_to_pacbio_hifi_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
+			os.system("python3 " + s_path_to_the_folder_where_Mabs_lies + "/calculate_AG.py --output_folder " + s_path_to_the_output_folder + "/AG_calculation_for_point_" + str(n_number_of_the_point_under_analysis) + " --assembly " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta " + s_long_reads_option_for_calculate_AG + " " + s_path_to_long_reads_that_correspond_to_busco_genes + " --number_of_busco_orthogroups all --local_busco_dataset " + s_path_to_the_output_folder + "/BUSCO_dataset_to_use --use_proovframe false --max_intron_length " + s_maximum_allowed_intron_length + " --threads " + str(n_number_of_cpu_threads_to_use))
 			
 			s_path_to_the_last_assembly_folder = s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/" #путь к последней папке со сборкой. Нужен, чтобы перемещать из неё в новую папку со сборкой файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.
 			

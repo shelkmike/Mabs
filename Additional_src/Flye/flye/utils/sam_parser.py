@@ -137,8 +137,12 @@ class SynchonizedChunkManager(object):
         #will be shared between processes
         #self.shared_manager = multiprocessing.Manager()
         self.shared_num_jobs = multiprocessing.Value(ctypes.c_int, 0)
-        self.shared_lock = multiproc_manager.Lock()
-        self.shared_eof = multiprocessing.Value(ctypes.c_bool, False)
+        if multiproc_manager:
+            self.shared_lock = multiproc_manager.Lock()
+            self.shared_eof = multiprocessing.Value(ctypes.c_bool, False)
+        else:
+            self.shared_lock = None
+            self.shared_eof = ctypes.c_bool(False)
 
 
         for ctg_id in reference_fasta:
@@ -161,15 +165,22 @@ class SynchonizedChunkManager(object):
     def get_chunk(self):
         job_id = None
         while True:
-            with self.shared_lock:
-                if self.shared_eof.value:
-                    return None
+            if self.shared_lock:
+                self.shared_lock.acquire()
 
-                job_id = self.shared_num_jobs.value
-                self.shared_num_jobs.value = self.shared_num_jobs.value + 1
-                if self.shared_num_jobs.value == len(self.fetch_list):
-                    self.shared_eof.value = True
-                break
+            if self.shared_eof.value:
+                if self.shared_lock:
+                    self.shared_lock.release()
+                return None
+            
+            job_id = self.shared_num_jobs.value
+            self.shared_num_jobs.value = self.shared_num_jobs.value + 1
+            if self.shared_num_jobs.value == len(self.fetch_list):
+                self.shared_eof.value = True
+
+            if self.shared_lock:
+                self.shared_lock.release()
+            break
 
             time.sleep(0.01)
 
@@ -197,7 +208,7 @@ class SynchronizedSamReader(object):
         self.cigar_parser = re.compile(b"[0-9]+[MIDNSHP=X]")
 
         #self.shared_manager = multiprocessing.Manager()
-        self.ref_fasta = multiproc_manager.dict()
+        self.ref_fasta = dict() if multiproc_manager == None else multiproc_manager.dict()
         for (h, s) in iteritems(reference_fasta):
             self.ref_fasta[_BYTES(h)] = _BYTES(s)
 
