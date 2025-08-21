@@ -58,10 +58,10 @@ Mabs-hifiasm can also use ultra-long (N50 > 50 kbp) low-accuracy Nanopore reads 
 Examples of using Mabs-hifiasm.
 
 Example 1:<br>
-`mabs-hifiasm.py --long_reads hifi_reads.fastq --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40`
+`mabs-hifiasm.py --long_reads hifi_reads.fastq.gz --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40`
 
 Example 2:<br>
-`mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads ultralong_reads.fastq --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40`
+`mabs-hifiasm.py --long_reads hifi_reads.fastq.gz --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq.gz --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq.gz --ultralong_nanopore_reads ultralong_reads.fastq.gz --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40`
 <br><br>
 
 #### b) Mabs-flye
@@ -76,10 +76,10 @@ To see the full list of options, run
 Examples of using Mabs-flye.
 
 Example 1:<br>
-`mabs-flye.py --nanopore_reads nanopore_reads.fastq --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40`
+`mabs-flye.py --nanopore_reads nanopore_reads.fastq.gz --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40`
 
 Example 2:<br>
-`mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hifi_reads.fastq --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40`
+`mabs-flye.py --nanopore_reads nanopore_reads.fastq.gz --pacbio_hifi_reads pacbio_hifi_reads.fastq.gz --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40`
 <br><br>
 
 #### c) The output of Mabs
@@ -116,7 +116,7 @@ calculate_AG differentiates true multicopy orthogroups from false multicopy orth
 Basically, the larger AG is, the better the assembly is.
 <br><br>
 If a user wants to calculate AG for some genome assembly, he can use a command like:<br>
-`calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40`
+`calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq.gz --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40`
 <br><br>
 For more options, run<br>
 `calculate_AG.py --help`
