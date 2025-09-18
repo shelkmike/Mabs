@@ -63,6 +63,9 @@ if __name__ == '__main__':
 		
 	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/Minimap2/minimap2"):
 		l_unavailable_files_and_folders.append("The file " + s_path_to_the_folder_where_Mabs_lies + "/Additional/Minimap2/minimap2 has not been found")
+		
+	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_median_read_accuracy.py"):
+		l_unavailable_files_and_folders.append("The file calculate_median_read_accuracy.py should be in the subfolder \"Additional\" of the folder where Mabs lies.")
 
 	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/Proovframe/bin/proovframe-map"):
 		l_unavailable_files_and_folders.append("The file " + s_path_to_the_folder_where_Mabs_lies + "/Additional/Proovframe/bin/proovframe-map has not been found")
@@ -89,7 +92,7 @@ if __name__ == '__main__':
 	s_number_of_busco_orthogroups_to_use = "1000" #сколько ортогрупп BUSCO использовать. Это строка, содержащая или число, или слово "all", если нужно использовать все. Если пользователь укажет больше, чем есть в используемой базе данных BUSCO, то calculate_AG всё равно будет использовать все.
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO. Переменная начинается с "s_", потому что это строка. Ниже будет ещё переменная n_maximum_allowed_intron_length, которая число.
 
-	s_version_of_calculate_AG = "2.29" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
+	s_version_of_calculate_AG = "2.30" #версия этой программы. Всегда равна версии Mabs. Поскольку эта программа нужна, в первую очередь, для Mabs, то когда я увеличиваю номер версии Mabs, то увеличивается и номер версии calculate_AG, и наоборот.
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то calculate_AG напишет про них все, а не только про первую встреченную.
 
@@ -114,7 +117,7 @@ Informational options:
 \033[93m13)\033[0m --version        Print the version of calculate_AG.
 
 Example:
-calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40
+calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq.gz --local_busco_dataset /mnt/lustre/username/Datasets/eudicots_odb10 --threads 40
 		""")
 		sys.exit()
 		
@@ -500,7 +503,7 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 				
 		f_infile.close()
 		
-		#теперь померяю покрытие в контигах. При измерении покрытия использую только те риды, которые выравнивались к белкам BUSCO. Когда я меряю покрытие, я, для краткости, не выдаю позиции с нулевым покрытием. Это потому, что если геном достаточно большой, то, поскольку я выравниваю только те риды, которые выровнялись к белкам BUSCO, большинство позиций будут непокрытыми.
+		#Теперь померяю покрытие в генах BUSCO. Для этого сначала нужно картировать риды на сборку.
 		#Если пользователь дал Mabs несколько наборов длинных ридов, то результаты их картирования сразу конкатенирую в один paf-файл mapping_to_calculate_coverage__before_simplification_of_split_reads.paf с помощью ">>".
 		#У выходного файла окончание "__before_simplification_of_split_reads", потому что Minimap2 умеет делать split mapping, когда часть рида выравнивается в одно место, а часть в другое. При этом, split mapping может быть с частичным перекрытием фрагментов. Проблема в том, что я видел случаи, когда риды картировался как split mapping на ложно дуплицированные гены, которые были в разных контигах. При этом из-за существенного перекрытия картировавшихся частей у этих ридов было завышенное покрытие, из-за чего Mabs посчитал их истинно дуплицированными. Поэтому ниже я буду изменять файл mapping_to_calculate_coverage__before_simplification_of_split_reads.paf , превращая его в файл mapping_to_calculate_coverage.paf , при этом для каждого рида будет оставляться только одно картирование.
 		
@@ -510,7 +513,38 @@ calculate_AG.py --assembly contigs.fasta --nanopore_reads nanopore_reads.fastq -
 		
 		#если пользователь дал риды Нанопора.
 		if (s_path_to_nanopore_reads != ""):
-			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Minimap2/minimap2 -x map-ont -I 1000G -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_the_assembly_after_polishing + " " + s_path_to_nanopore_reads + " >>" + s_path_to_the_output_folder + "/mapping_to_calculate_coverage__before_simplification_of_split_reads.paf")
+			
+			#Нужно по 1000 случайных ридов посчитать точность, чтобы понять, запускать Minimap2 с опцией map-ont или с опцией lr:hq. Если медианная точность по 1000 случайным ридам 97% или выше, то использую lr:hq. Если риды в формате FASTA, то использую map-ont.
+			s_option_to_provide_Nanopore_reads_with = "" #Значение этой переменной будет "map-ont" или "lr:hq".
+			if re.search(r"(\.fasta|\.fa|\.fasta\.gz|\.fa\.gz)$", s_path_to_nanopore_reads):
+				s_option_to_provide_Nanopore_reads_with = "map-ont"
+			else:
+				#Беру 1000 случайных ридов.
+				os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/SeqTk/seqtk sample -s seed=1 " + s_path_to_nanopore_reads + " 1000 > " + s_path_to_the_output_folder + "/1000_random_reads.fastq")
+				
+				#Вычисляю медианную точность ридов.
+				s_median_accuracy_of_reads = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_median_read_accuracy.py " + s_path_to_the_output_folder + "/1000_random_reads.fastq")
+				#Чтобы получить медианную точность в виде числа, отрезаю "%" на конце.
+				s_median_accuracy_of_reads__without_the_percent_sign = re.sub(r"\%$", "", s_median_accuracy_of_reads)
+				n_median_accuracy_of_reads = float(s_median_accuracy_of_reads__without_the_percent_sign)
+				
+				#Округляю медианную точность, чтобы показать её пользователю. Если точность <=90%, то округляю до целого. Если точность от 90% до 99%, то округляю до первого знака после запятой. Если точность >99%, то округляю до второго знака после запятой.
+				if n_median_accuracy_of_reads <= 90:
+					n_median_accuracy_of_reads__rounded = int(round(n_median_accuracy_of_reads, 0))
+				elif (n_median_accuracy_of_reads > 90) and (n_median_accuracy_of_reads <= 99):
+					n_median_accuracy_of_reads__rounded = round(n_median_accuracy_of_reads, 1)
+				else:
+					n_median_accuracy_of_reads__rounded = round(n_median_accuracy_of_reads, 2)
+				
+				if n_median_accuracy_of_reads__rounded < 97:
+					f_log.write("The median accuracy of Nanopore reads has been estimated as approximately " + str(n_median_accuracy_of_reads__rounded) + "%. This accuracy is rather low, therefore the reads will be mapped by Minimap2 with the \"map-ont\" option.\n\n")
+					s_option_to_provide_Nanopore_reads_with = "map-ont"
+				else:
+					f_log.write("The median accuracy of Nanopore reads has been estimated as approximately " + str(n_median_accuracy_of_reads__rounded) + "%. This accuracy is quite high, therefore the reads will be mapped by Minimap2 with the \"lr:hq\" option.\n\n")
+					s_option_to_provide_Nanopore_reads_with = "lr:hq"
+					
+		
+			os.system(s_path_to_the_folder_where_Mabs_lies + "/Additional/Minimap2/minimap2 -x " + s_option_to_provide_Nanopore_reads_with + " -I 1000G -t " + str(n_number_of_cpu_threads_to_use) + " " + s_path_to_the_assembly_after_polishing + " " + s_path_to_nanopore_reads + " >>" + s_path_to_the_output_folder + "/mapping_to_calculate_coverage__before_simplification_of_split_reads.paf")
 
 		#если пользователь дал риды CLR.
 		if (s_path_to_pacbio_clr_reads != ""):

@@ -71,6 +71,12 @@ if __name__ == '__main__':
 		
 	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_N50.py"):
 		l_unavailable_files_and_folders.append("The file calculate_N50.py should be in the subfolder \"Additional\" of the folder where Mabs lies.")
+		
+	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_auN.py"):
+		l_unavailable_files_and_folders.append("The file calculate_auN.py should be in the subfolder \"Additional\" of the folder where Mabs lies.")
+		
+	if not os.path.isfile(s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_median_read_accuracy.py"):
+		l_unavailable_files_and_folders.append("The file calculate_median_read_accuracy.py should be in the subfolder \"Additional\" of the folder where Mabs lies.")
 	
 	if not os.path.isdir(s_path_to_the_folder_where_Mabs_lies + "/Test_datasets"):
 		l_unavailable_files_and_folders.append("The subfolder \"Test_datasets\" should be in the folder where Mabs lies.")
@@ -100,7 +106,7 @@ if __name__ == '__main__':
 	
 	s_additional_hifiasm_parameters = "" #дополнительные параметры Hifiasm.
 	
-	s_Mabs_version = "2.29"
+	s_Mabs_version = "2.30"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-hifiasm напишет про них все, а не только про первую встреченную.
 
@@ -137,10 +143,10 @@ Informational options:
 \033[93m19)\033[0m --run_test        Assemble a small dataset to test whether Mabs-hifiasm was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-hifiasm was installed successfully.
 
 Example 1:
-mabs-hifiasm.py --long_reads hifi_reads.fastq --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40
+mabs-hifiasm.py --long_reads hifi_reads.fastq.gz --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40
 
 Example 2:
-mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq --ultralong_nanopore_reads nanopore_reads.fastq --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40
+mabs-hifiasm.py --long_reads hifi_reads.fastq.gz --short_hi-c_reads_R1 hi-c_reads_trimmed_R1.fastq.gz --short_hi-c_reads_R2 hi-c_reads_trimmed_R2.fastq.gz --ultralong_nanopore_reads nanopore_reads.fastq.gz --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40
 		""")
 		sys.exit()
 
@@ -691,6 +697,8 @@ mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_t
 	d_s_to_AG = {} #Например, [0.362] = 762.
 	#Это список, в который для каждого проверенного -s будет записан N50. Ключ это -s, а значение это N50.
 	d_s_to_N50 = {} #Например, [0.362] = 12345678.
+	#Это список, в который для каждого проверенного -s будет записан auN. Ключ это -s, а значение это auN.
+	d_s_to_auN = {} #Например, [0.362] = 12345678.
 	
 	#Анализирую вторую точку.
 	n_number_of_the_point_under_analysis = 1
@@ -751,10 +759,16 @@ mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_t
 	n_N50_for_golden_section_point_2 = int(s_command_output)
 	d_s_to_N50[n_s] = n_N50_for_golden_section_point_2
 	
+	#Считаю auN
+	s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_auN.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_auN.py выдаёт auN.
+	s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+	n_auN_for_golden_section_point_2 = int(s_command_output)
+	d_s_to_auN[n_s] = n_auN_for_golden_section_point_2
+	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
 	f_log.write(s_current_time_and_date + "\n")
-	f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_2) + " and N50 = " + str(n_N50_for_golden_section_point_2) + "\n\n")
+	f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_2) + ", N50 = " + str(n_N50_for_golden_section_point_2) + ", auN = " + str(n_auN_for_golden_section_point_2) + "\n\n")
 
 	#Анализирую третью точку.
 	n_number_of_the_point_under_analysis += 1
@@ -818,17 +832,23 @@ mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_t
 	n_N50_for_golden_section_point_3 = int(s_command_output)
 	d_s_to_N50[n_s] = n_N50_for_golden_section_point_3
 	
+	#Считаю auN
+	s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_auN.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_auN.py выдаёт auN.
+	s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+	n_auN_for_golden_section_point_3 = int(s_command_output)
+	d_s_to_auN[n_s] = n_auN_for_golden_section_point_3
+	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
 	f_log.write(s_current_time_and_date + "\n")
-	f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_3) + " and N50 = " + str(n_N50_for_golden_section_point_3) + "\n\n")
+	f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_3) + ", N50 = " + str(n_N50_for_golden_section_point_3) + ", auN = " + str(n_auN_for_golden_section_point_3) + "\n\n")
 
 	#теперь последовательно выбираю остальные 8 точек методом золотого сечения и меряю AG для них.
 	while n_number_of_the_point_under_analysis < 10: #"<", а не "<=", потому что увеличение номера точки здесь делается в начале цикла.
 		n_number_of_the_point_under_analysis += 1
 		
-		#Смотрю, какая из двух центральных точек (вторая или третья) имеют меньшее значение AG. Если вторая имеет меньшее, то выкидываю первую точку и сужаю интервал. Если третья имеет меньшее, чем вторая, то выкидываю четвёртую точку и сужаю интервал. При равных значениях AG делаю такое же сравнение, но для N50. Если и N50 равные, то выкидываю правую точку. Правую выкидываю потому, что по моим впечатлениям оптимальный -s чаще бывает ближе к 0, чем к 1.
-		if (n_AG_for_golden_section_point_2 < n_AG_for_golden_section_point_3) or ((n_AG_for_golden_section_point_2 == n_AG_for_golden_section_point_3) and (n_N50_for_golden_section_point_2 < n_N50_for_golden_section_point_3)):
+		#Смотрю, какая из двух центральных точек (вторая или третья) имеют меньшее значение AG. Если вторая имеет меньшее, то выкидываю первую точку и сужаю интервал. Если третья имеет меньшее, чем вторая, то выкидываю четвёртую точку и сужаю интервал. При равных значениях AG делаю такое же сравнение, но для auN. Если и auN равные, то выкидываю правую точку. Правую выкидываю потому, что по моим впечатлениям оптимальный -s чаще бывает ближе к 0, чем к 1.
+		if (n_AG_for_golden_section_point_2 < n_AG_for_golden_section_point_3) or ((n_AG_for_golden_section_point_2 == n_AG_for_golden_section_point_3) and (n_auN_for_golden_section_point_2 < n_auN_for_golden_section_point_3)):
 			n_golden_section_point_1 = n_golden_section_point_2
 			n_golden_section_point_2 = n_golden_section_point_3
 			#n_golden_section_point_4 не меняется
@@ -836,13 +856,16 @@ mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_t
 			
 			n_AG_for_golden_section_point_1 = n_AG_for_golden_section_point_2
 			n_N50_for_golden_section_point_1 = n_N50_for_golden_section_point_2
+			n_auN_for_golden_section_point_1 = n_auN_for_golden_section_point_2
 			
 			n_AG_for_golden_section_point_2 = n_AG_for_golden_section_point_3
 			n_N50_for_golden_section_point_2 = n_N50_for_golden_section_point_3
+			n_auN_for_golden_section_point_2 = n_auN_for_golden_section_point_3
 			
-			#n_AG_for_golden_section_point_4 и n_N50_for_golden_section_point_4 не меняется
+			#n_AG_for_golden_section_point_4, n_N50_for_golden_section_point_4 и n_auN_for_golden_section_point_4 не меняется
 			n_AG_for_golden_section_point_3 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
 			n_N50_for_golden_section_point_3 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
+			n_auN_for_golden_section_point_3 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
 			
 			#Анализирую третью точку.
 			n_s = n_golden_section_point_3
@@ -905,26 +928,35 @@ mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_t
 			n_N50_for_golden_section_point_3 = int(s_command_output)
 			d_s_to_N50[n_s] = n_N50_for_golden_section_point_3
 			
+			#Считаю auN
+			s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_auN.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_auN.py выдаёт auN.
+			s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+			n_auN_for_golden_section_point_3 = int(s_command_output)
+			d_s_to_auN[n_s] = n_auN_for_golden_section_point_3
+			
 			o_current_time_and_date = datetime.datetime.now()
 			s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
 			f_log.write(s_current_time_and_date + "\n")
-			f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_3) + " and N50 = " + str(n_N50_for_golden_section_point_3) + "\n\n")
+			f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_3) + ", N50 = " + str(n_N50_for_golden_section_point_3) + ", auN = " + str(n_auN_for_golden_section_point_3) + "\n\n")
 			
-		elif (n_AG_for_golden_section_point_2 > n_AG_for_golden_section_point_3)  or ((n_AG_for_golden_section_point_2 == n_AG_for_golden_section_point_3) and (n_N50_for_golden_section_point_2 >= n_N50_for_golden_section_point_3)):
+		elif (n_AG_for_golden_section_point_2 > n_AG_for_golden_section_point_3)  or ((n_AG_for_golden_section_point_2 == n_AG_for_golden_section_point_3) and (n_auN_for_golden_section_point_2 >= n_auN_for_golden_section_point_3)):
 			#n_golden_section_point_1 не меняется
 			n_golden_section_point_4 = n_golden_section_point_3
 			n_golden_section_point_3 = n_golden_section_point_2
 			n_golden_section_point_2 = round((n_golden_section_point_1 + ((math.sqrt(5) - 1) / (math.sqrt(5) + 1))*(n_golden_section_point_4 - n_golden_section_point_1)), 3)
 			
-			#n_AG_for_golden_section_point_1 и n_N50_for_golden_section_point_1 не меняются
+			#n_AG_for_golden_section_point_1, n_N50_for_golden_section_point_1 и n_auN_for_golden_section_point_1 не меняются
 			n_AG_for_golden_section_point_4 = n_AG_for_golden_section_point_3
 			n_N50_for_golden_section_point_4 = n_N50_for_golden_section_point_3
+			n_auN_for_golden_section_point_4 = n_auN_for_golden_section_point_3
 			
 			n_AG_for_golden_section_point_3 = n_AG_for_golden_section_point_2
 			n_N50_for_golden_section_point_3 = n_N50_for_golden_section_point_2
+			n_auN_for_golden_section_point_3 = n_auN_for_golden_section_point_2
 			
 			n_AG_for_golden_section_point_2 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
 			n_N50_for_golden_section_point_2 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
+			n_auN_for_golden_section_point_2 = -100 #плейсхолдер. Всё равно это значение я сейчас посчитаю.
 			
 			#Анализирую вторую точку.
 			n_s = n_golden_section_point_2
@@ -986,34 +1018,42 @@ mabs-hifiasm.py --long_reads hifi_reads.fastq --short_hi-c_reads_R1 hi-c_reads_t
 			n_N50_for_golden_section_point_2 = int(s_command_output)
 			d_s_to_N50[n_s] = n_N50_for_golden_section_point_2
 			
+			#Считаю auN
+			s_command_output = subprocess.getoutput("python3 " + s_path_to_the_folder_where_Mabs_lies + "/Additional/calculate_auN.py " + s_path_to_the_output_folder + "/Assembly_for_point_" + str(n_number_of_the_point_under_analysis) + "/assembly.fasta") #скрипт calculate_auN.py выдаёт auN.
+			s_command_output = re.sub(r"\n", r"", s_command_output) #удаляю символ переноса строки
+			n_auN_for_golden_section_point_2 = int(s_command_output)
+			d_s_to_auN[n_s] = n_auN_for_golden_section_point_2
+			
 			o_current_time_and_date = datetime.datetime.now()
 			s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
 			f_log.write(s_current_time_and_date + "\n")
-			f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_2) + " and N50 = " + str(n_N50_for_golden_section_point_2) + "\n\n")
+			f_log.write("For -s = " + str(n_s) + ": AG = " + str(n_AG_for_golden_section_point_2) + ", N50 = " + str(n_N50_for_golden_section_point_2) + ", auN = " + str(n_auN_for_golden_section_point_2) + "\n\n")
 
 
-	#После того, как посчитал AG для всех 10 точек, я смотрю, какая из них дала наибольший AG. Если наибольший AG принадлежит сразу нескольким точкам, то выбираю ту из них, которая дала больший N50. Если несколько точек дают одинаковый AG и N50, то, для определённости, выбираю ту из них, которая имеет меньший -s. После этого делаю сборку для этого значения "-s", но на этот раз без использования параметра Modified_hifiasm "--only-primary", потому что тут я хочу сделать все файлы, в том числе файлы с фазированной сборкой — может быть, они будут полезны пользователю. 
+	#После того, как посчитал AG для всех 10 точек, я смотрю, какая из них дала наибольший AG. Если наибольший AG принадлежит сразу нескольким точкам, то выбираю ту из них, которая дала больший auN. Если несколько точек дают одинаковый AG и auN, то, для определённости, выбираю ту из них, которая имеет меньший -s. После этого делаю сборку для этого значения "-s", но на этот раз без использования параметра Modified_hifiasm "--only-primary", потому что тут я хочу сделать все файлы, в том числе файлы с фазированной сборкой — может быть, они будут полезны пользователю. 
 	
 	n_s_that_makes_the_best_assembly = -100
 	n_AG_in_the_best_point = -100
 	n_N50_in_the_best_point = -100
+	n_auN_in_the_best_point = -100
 	for n_s in d_s_to_AG:
 		if d_s_to_AG[n_s] > n_AG_in_the_best_point:
 			n_s_that_makes_the_best_assembly = n_s
 			n_AG_in_the_best_point = d_s_to_AG[n_s]
 			n_N50_in_the_best_point = d_s_to_N50[n_s]
-		elif (d_s_to_AG[n_s] == n_AG_in_the_best_point) and (d_s_to_N50[n_s] > n_N50_in_the_best_point):
+			n_auN_in_the_best_point = d_s_to_auN[n_s]
+		elif (d_s_to_AG[n_s] == n_AG_in_the_best_point) and (d_s_to_auN[n_s] > n_auN_in_the_best_point):
 			n_s_that_makes_the_best_assembly = n_s
 			n_AG_in_the_best_point = d_s_to_AG[n_s]
-			n_N50_in_the_best_point = d_s_to_N50[n_s]
-		elif (d_s_to_AG[n_s] == n_AG_in_the_best_point) and (d_s_to_N50[n_s] == n_N50_in_the_best_point) and (n_s < n_s_that_makes_the_best_assembly):
+			n_auN_in_the_best_point = d_s_to_auN[n_s]
+		elif (d_s_to_AG[n_s] == n_AG_in_the_best_point) and (d_s_to_auN[n_s] == n_auN_in_the_best_point) and (n_s < n_s_that_makes_the_best_assembly):
 			
 			n_s_that_makes_the_best_assembly = n_s
 	
 	o_current_time_and_date = datetime.datetime.now()
 	s_current_time_and_date = o_current_time_and_date.strftime("%H:%M:%S %Y-%m-%d")
 	f_log.write(s_current_time_and_date + "\n")
-	f_log.write("The optimal -s is " + str(n_s_that_makes_the_best_assembly) + ", it provides AG = " + str(n_AG_in_the_best_point) + " and N50 = " + str(n_N50_in_the_best_point) + ". Now performing a full assembly for this value of -s.\n\n")
+	f_log.write("The optimal -s is " + str(n_s_that_makes_the_best_assembly) + ", it provides AG = " + str(n_AG_in_the_best_point) + ", N50 = " + str(n_N50_in_the_best_point) + ", auN = " + str(n_auN_in_the_best_point) + ". Now performing a full assembly for this value of -s.\n\n")
 	os.mkdir(s_path_to_the_output_folder + "/The_best_assembly")
 				
 	#Перемещаю из прошлой папки со сборкой в эту файлы, названия которых имеют форму *.bin или *utg*. Присутствие этих файлов ускоряет сборку.

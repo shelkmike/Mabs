@@ -117,7 +117,7 @@ if __name__ == '__main__':
 	s_maximum_allowed_intron_length = "from_BUSCO" #максимальная разрешённая длина интрона. По умолчанию, используется значение из файла dataset.cfg датасета BUSCO.
 	s_additional_flye_parameters = "" #дополнительные параметры Flye.
 	
-	s_Mabs_version = "2.29"
+	s_Mabs_version = "2.30"
 
 	l_errors_in_command_line = [] #список ошибок в командной строке. Если пользователь совершил много ошибок, то Mabs-flye напишет про них все, а не только про первую встреченную.
 
@@ -148,10 +148,10 @@ Informational options:
 \033[93m15)\033[0m --run_test        Assemble a small dataset to test whether Mabs-flye was installed properly. The assembly takes approximately 10 minutes. If a non-empty file ./Mabs_results/The_best_assembly/assembly.fasta appears, then Mabs-flye was installed successfully.
 
 Example 1:
-mabs-flye.py --nanopore_reads nanopore_reads.fastq --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40
+mabs-flye.py --nanopore_reads nanopore_reads.fastq.gz --download_busco_dataset eudicots_odb10.2024-01-08.tar.gz --threads 40
 
 Example 2:
-mabs-flye.py --nanopore_reads nanopore_reads.fastq --pacbio_hifi_reads pacbio_hifi_reads.fastq --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40
+mabs-flye.py --nanopore_reads nanopore_reads.fastq.gz --pacbio_hifi_reads pacbio_hifi_reads.fastq.gz --download_busco_dataset diptera_odb10.2024-01-08.tar.gz --threads 40
 		""")
 		sys.exit()
 
