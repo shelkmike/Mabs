@@ -138,7 +138,7 @@ The recommended usage of calculate_AG is to compare the quality of assemblies of
 ## Questions and Answers
 
 1. Should assemblies produced by Mabs be polished afterwards?<br>
-The assemblies made by Mabs-hifiasm are accurate already. The assemblies made by Mabs-flye require polishing by accurate reads. "Accurate reads" are reads of Illumina, MGI, or PacBio HiFi. Good programs for polishing are, for example, [NextPolish](https://github.com/Nextomics/NextPolish), [POLCA](https://github.com/alekseyzimin/masurca), [Racon](https://github.com/lbcb-sci/racon).
+Assemblies made from PacBio HiFi reads are highly accurate and do not require polishing. For assemblies made from Oxford Nanopore reads, please do polishing by accurate (Illumina, MGI, PacBio HiFi, etc.) reads using programs like [POLCA](https://github.com/alekseyzimin/masurca) or [NextPolish](https://github.com/Nextomics/NextPolish).
 2. What is the main downside of Mabs?<br>
 I think it is the fact that I made Mabs-flye instead of "Mabs-nextdenovo". When I started developing Mabs, I thought that Flye is the best assembler for low-accuracy (i.e., made on flow cells older than 10.4.1) Oxford Nanopore reads. However, I later realized that [NextDenovo](https://github.com/Nextomics/NextDenovo) usually makes better assemblies from such reads. If I had known this beforehand, I would have made a version of Mabs based on NextDenovo instead of a version based on Flye. If you assemble a genome using old Oxford Nanopore reads, I recommend trying both NextDenovo and Mabs-flye.
 3. What is the program "Modified_hifiasm" used by Mabs?<br>
