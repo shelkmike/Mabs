@@ -44,7 +44,7 @@ To run Mabs-hifiasm, a user should provide two values:
 1. A path to reads, via the option "--long_reads".
 2. A BUSCO dataset. In the process of parameters optimization, Mabs uses a BUSCO dataset. The dataset can be provided using either the option "--download_busco_dataset", or the option "--local_busco_dataset".
 The option "--download_busco_dataset" requires a filename from [http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/](http://mikeshelk.site/Data/BUSCO_datasets/BUSCO_datasets_current_as_of_2024-03-22/) (for older versions of Mabs, the link was different, run the older versions with the option "--help" to see the link). It is recommended to use the most taxonomically narrow dataset. For example, if you assemble a drosophila genome, use "--download_busco_dataset diptera_odb10.2024-01-08.tar.gz".
-Alternatively, you can download a dataset to your computer manually, and use the option "--local_busco_dataset". For example, "--local_busco_dataset /home/username/Work/diptera_odb10.2024-01-08.tar.gz".
+Alternatively, you can download a dataset to your computer manually, and use the option "--local_busco_dataset". For example, "--local_busco_dataset /home/username/Work/diptera_odb10.2024-01-08.tar.gz". Take into account that odb12 datasets are currently incompatible with Mabs, so please use odb10.
 
 To see the full list of options, run
 `mabs-hifiasm.py --help`
